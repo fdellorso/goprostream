@@ -1,0 +1,28 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "c98afa66617d9c319a1fb26050928fb0dcd19935be6aa600e470855e79fb25ac"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.8"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "goprocam": {
+            "hashes": [
+                "sha256:4cbb11ff67aacc9bb5540469184f089811e5398426a1a7e6648c80f7b39abb50"
+            ],
+            "index": "pypi",
+            "version": "==4.2.0"
+        }
+    },
+    "develop": {}
+}
