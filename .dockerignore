@@ -1,0 +1,13 @@
+.git
+node_modules
+.vscode
+.DS_Store
+*.md
+!Pipfile*
+docs/
+player/
+nginx.conf
+docker-compose.yml
+docker-compose*.yml
+*.html
+.env.example
