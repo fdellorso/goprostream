@@ -44,6 +44,7 @@
     .cmd-btn { padding: 6px 12px; background: #222; border: 1px solid #444; border-radius: 6px; color: #e0e0e0; cursor: pointer; font-size: 0.8rem; }
     .cmd-btn:hover { background: #333; border-color: #00ff88; }
     .cmd-btn:active { background: #00ff88; color: #000; }
+    .cmd-btn.active { background: #003300; border-color: #00ff88; color: #00ff88; }
     .cmd-input { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .cmd-input input { padding: 6px 10px; background: #222; border: 1px solid #444; border-radius: 6px; color: #e0e0e0; font-size: 0.8rem; flex: 1; min-width: 150px; }
     .cmd-input input:focus { outline: none; border-color: #00ff88; }
@@ -220,9 +221,9 @@
           <div class="cmd-title">Modalità</div>
           <div class="cmd-desc">Cambia modalità camera</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/mode?p=0')">🎥 Video</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/mode?p=1')">📷 Photo</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/mode?p=2')">📸 MultiShot</button>
+            <button class="cmd-btn" data-group="mode" data-value="0" onclick="goproCmd('/command/mode?p=0')">🎥 Video</button>
+            <button class="cmd-btn" data-group="mode" data-value="1" onclick="goproCmd('/command/mode?p=1')">📷 Photo</button>
+            <button class="cmd-btn" data-group="mode" data-value="2" onclick="goproCmd('/command/mode?p=2')">📸 MultiShot</button>
           </div>
           <div class="cmd-result" id="res-mode"></div>
         </div>
@@ -258,18 +259,18 @@
         <div class="cmd-block">
           <div class="cmd-title">Risoluzione</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/1')">4K</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/2')">4K SuperView</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/4')">2.7K</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/5')">2.7K SuperView</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/6')">2.7K 4:3</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/7')">1440p</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/8')">1080p SuperView</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/9')">1080p</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/10')">960p</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/11')">720p SuperView</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/12')">720p</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/2/13')">WVGA</button>
+            <button class="cmd-btn" data-group="resolution" data-value="1" onclick="goproCmd('/setting/2/1')">4K</button>
+            <button class="cmd-btn" data-group="resolution" data-value="2" onclick="goproCmd('/setting/2/2')">4K SuperView</button>
+            <button class="cmd-btn" data-group="resolution" data-value="4" onclick="goproCmd('/setting/2/4')">2.7K</button>
+            <button class="cmd-btn" data-group="resolution" data-value="5" onclick="goproCmd('/setting/2/5')">2.7K SuperView</button>
+            <button class="cmd-btn" data-group="resolution" data-value="6" onclick="goproCmd('/setting/2/6')">2.7K 4:3</button>
+            <button class="cmd-btn" data-group="resolution" data-value="7" onclick="goproCmd('/setting/2/7')">1440p</button>
+            <button class="cmd-btn" data-group="resolution" data-value="8" onclick="goproCmd('/setting/2/8')">1080p SuperView</button>
+            <button class="cmd-btn" data-group="resolution" data-value="9" onclick="goproCmd('/setting/2/9')">1080p</button>
+            <button class="cmd-btn" data-group="resolution" data-value="10" onclick="goproCmd('/setting/2/10')">960p</button>
+            <button class="cmd-btn" data-group="resolution" data-value="11" onclick="goproCmd('/setting/2/11')">720p SuperView</button>
+            <button class="cmd-btn" data-group="resolution" data-value="12" onclick="goproCmd('/setting/2/12')">720p</button>
+            <button class="cmd-btn" data-group="resolution" data-value="13" onclick="goproCmd('/setting/2/13')">WVGA</button>
           </div>
           <div class="cmd-result" id="res-res"></div>
         </div>
@@ -277,15 +278,15 @@
         <div class="cmd-block">
           <div class="cmd-title">Frame Rate</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/0')">240</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/1')">120</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/2')">100</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/3')">90</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/5')">60</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/7')">48</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/8')">30</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/10')">24</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/3/11')">15</button>
+            <button class="cmd-btn" data-group="fps" data-value="0" onclick="goproCmd('/setting/3/0')">240</button>
+            <button class="cmd-btn" data-group="fps" data-value="1" onclick="goproCmd('/setting/3/1')">120</button>
+            <button class="cmd-btn" data-group="fps" data-value="2" onclick="goproCmd('/setting/3/2')">100</button>
+            <button class="cmd-btn" data-group="fps" data-value="3" onclick="goproCmd('/setting/3/3')">90</button>
+            <button class="cmd-btn" data-group="fps" data-value="5" onclick="goproCmd('/setting/3/5')">60</button>
+            <button class="cmd-btn" data-group="fps" data-value="7" onclick="goproCmd('/setting/3/7')">48</button>
+            <button class="cmd-btn" data-group="fps" data-value="8" onclick="goproCmd('/setting/3/8')">30</button>
+            <button class="cmd-btn" data-group="fps" data-value="10" onclick="goproCmd('/setting/3/10')">24</button>
+            <button class="cmd-btn" data-group="fps" data-value="11" onclick="goproCmd('/setting/3/11')">15</button>
           </div>
           <div class="cmd-result" id="res-fps"></div>
         </div>
@@ -293,10 +294,10 @@
         <div class="cmd-block">
           <div class="cmd-title">FOV (Campo Visivo)</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/4/0')">Wide</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/4/1')">Medium</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/4/2')">Narrow</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/4/4')">Linear</button>
+            <button class="cmd-btn" data-group="fov" data-value="0" onclick="goproCmd('/setting/4/0')">Wide</button>
+            <button class="cmd-btn" data-group="fov" data-value="1" onclick="goproCmd('/setting/4/1')">Medium</button>
+            <button class="cmd-btn" data-group="fov" data-value="2" onclick="goproCmd('/setting/4/2')">Narrow</button>
+            <button class="cmd-btn" data-group="fov" data-value="4" onclick="goproCmd('/setting/4/4')">Linear</button>
           </div>
           <div class="cmd-result" id="res-fov"></div>
         </div>
@@ -307,62 +308,62 @@
         <div class="cmd-block">
           <div class="cmd-title">Protune</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/10/1')">ON</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/10/0')">OFF</button>
+            <button class="cmd-btn" data-group="protune" data-value="1" onclick="goproCmd('/setting/10/1')">ON</button>
+            <button class="cmd-btn" data-group="protune" data-value="0" onclick="goproCmd('/setting/10/0')">OFF</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">White Balance</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/0')">Auto</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/1')">3000K</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/2')">5500K</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/3')">6500K</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/4')">Native</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/5')">4000K</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/6')">4800K</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/11/7')">6000K</button>
+            <button class="cmd-btn" data-group="wb" data-value="0" onclick="goproCmd('/setting/11/0')">Auto</button>
+            <button class="cmd-btn" data-group="wb" data-value="1" onclick="goproCmd('/setting/11/1')">3000K</button>
+            <button class="cmd-btn" data-group="wb" data-value="2" onclick="goproCmd('/setting/11/2')">5500K</button>
+            <button class="cmd-btn" data-group="wb" data-value="3" onclick="goproCmd('/setting/11/3')">6500K</button>
+            <button class="cmd-btn" data-group="wb" data-value="4" onclick="goproCmd('/setting/11/4')">Native</button>
+            <button class="cmd-btn" data-group="wb" data-value="5" onclick="goproCmd('/setting/11/5')">4000K</button>
+            <button class="cmd-btn" data-group="wb" data-value="6" onclick="goproCmd('/setting/11/6')">4800K</button>
+            <button class="cmd-btn" data-group="wb" data-value="7" onclick="goproCmd('/setting/11/7')">6000K</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Color</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/12/0')">GoPro Color</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/12/1')">Flat</button>
+            <button class="cmd-btn" data-group="color" data-value="0" onclick="goproCmd('/setting/12/0')">GoPro Color</button>
+            <button class="cmd-btn" data-group="color" data-value="1" onclick="goproCmd('/setting/12/1')">Flat</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">ISO Limit</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/13/8')">100</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/13/7')">200</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/13/2')">400</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/13/4')">800</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/13/1')">1600</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/13/3')">3200</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/13/0')">6400</button>
+            <button class="cmd-btn" data-group="iso" data-value="8" onclick="goproCmd('/setting/13/8')">100</button>
+            <button class="cmd-btn" data-group="iso" data-value="7" onclick="goproCmd('/setting/13/7')">200</button>
+            <button class="cmd-btn" data-group="iso" data-value="2" onclick="goproCmd('/setting/13/2')">400</button>
+            <button class="cmd-btn" data-group="iso" data-value="4" onclick="goproCmd('/setting/13/4')">800</button>
+            <button class="cmd-btn" data-group="iso" data-value="1" onclick="goproCmd('/setting/13/1')">1600</button>
+            <button class="cmd-btn" data-group="iso" data-value="3" onclick="goproCmd('/setting/13/3')">3200</button>
+            <button class="cmd-btn" data-group="iso" data-value="0" onclick="goproCmd('/setting/13/0')">6400</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Sharpness</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/14/0')">High</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/14/1')">Medium</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/14/2')">Low</button>
+            <button class="cmd-btn" data-group="sharpness" data-value="0" onclick="goproCmd('/setting/14/0')">High</button>
+            <button class="cmd-btn" data-group="sharpness" data-value="1" onclick="goproCmd('/setting/14/1')">Medium</button>
+            <button class="cmd-btn" data-group="sharpness" data-value="2" onclick="goproCmd('/setting/14/2')">Low</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">EV Compensation</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/0')">+2.0</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/1')">+1.5</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/2')">+1.0</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/3')">+0.5</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/4')">0.0</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/5')">-0.5</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/6')">-1.0</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/7')">-1.5</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/15/8')">-2.0</button>
+            <button class="cmd-btn" data-group="ev" data-value="0" onclick="goproCmd('/setting/15/0')">+2.0</button>
+            <button class="cmd-btn" data-group="ev" data-value="1" onclick="goproCmd('/setting/15/1')">+1.5</button>
+            <button class="cmd-btn" data-group="ev" data-value="2" onclick="goproCmd('/setting/15/2')">+1.0</button>
+            <button class="cmd-btn" data-group="ev" data-value="3" onclick="goproCmd('/setting/15/3')">+0.5</button>
+            <button class="cmd-btn" data-group="ev" data-value="4" onclick="goproCmd('/setting/15/4')">0.0</button>
+            <button class="cmd-btn" data-group="ev" data-value="5" onclick="goproCmd('/setting/15/5')">-0.5</button>
+            <button class="cmd-btn" data-group="ev" data-value="6" onclick="goproCmd('/setting/15/6')">-1.0</button>
+            <button class="cmd-btn" data-group="ev" data-value="7" onclick="goproCmd('/setting/15/7')">-1.5</button>
+            <button class="cmd-btn" data-group="ev" data-value="8" onclick="goproCmd('/setting/15/8')">-2.0</button>
           </div>
         </div>
       </div>
@@ -659,6 +660,8 @@
     function setDot(id, ok) { var e = document.getElementById(id); if (e) e.className = 'dot ' + (ok === true ? 'ok' : ok === false ? 'err' : 'off'); }
     function fmtBytes(b) { return (b / (1024*1024*1024)).toFixed(1) + ' GB'; }
 
+    var statusData = {};
+
     function updateStatus() {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', '/api/status?t=' + Date.now());
@@ -669,6 +672,7 @@
             var d = JSON.parse(xhr.responseText);
             var s = d.status;
             var st = d.settings;
+            statusData = s;
             setDot('dot-gopro', true);
             setText('val-gopro', 'Connessa');
             setText('s-30', s['30'] || 'GP26479007');
@@ -728,6 +732,7 @@
             setText('set-63', mapVal(st['63'], WIFI));
             setText('set-62', st['62'] ? (st['62']/1000) + ' kbps' : '-');
             setText('set-64', mapVal(st['64'], {0:'Default',1:'240p',4:'480p',7:'720p',8:'720p 3:4',9:'720p 1:2'}));
+            updateHighlights(st);
             addLog('Status aggiornato', 'log-ok');
           } catch(e) {
             addLog('Errore parsing status', 'log-err');
@@ -740,6 +745,30 @@
         addLog('GoPro non raggiungibile', 'log-err');
       };
       xhr.send();
+    }
+
+    // --- HIGHLIGHTS ---
+    function updateHighlights(settings) {
+      document.querySelectorAll('.cmd-btn').forEach(function(b) { b.classList.remove('active'); });
+      var map = {
+        'mode': statusData['43'],
+        'resolution': settings['2'],
+        'fps': settings['3'],
+        'fov': settings['4'],
+        'protune': settings['10'],
+        'wb': settings['11'],
+        'color': settings['12'],
+        'iso': settings['13'],
+        'sharpness': settings['14'],
+        'ev': settings['15']
+      };
+      for (var group in map) {
+        var val = map[group];
+        if (val !== undefined) {
+          var btn = document.querySelector('[data-group="' + group + '"][data-value="' + val + '"]');
+          if (btn) btn.classList.add('active');
+        }
+      }
     }
 
     function checkHLS() {
