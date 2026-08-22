@@ -1,0 +1,14 @@
+{
+  "skills": [
+    ".pi/skills/podman",
+    ".pi/skills/python",
+    ".pi/skills/ffmpeg-streaming"
+  ],
+  "extensions": [
+    ".pi/extensions/python-lsp.ts",
+    ".pi/extensions/project-commands.ts"
+  ],
+  "packages": [],
+  "themes": [],
+  "prompts": []
+}

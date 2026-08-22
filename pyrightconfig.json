@@ -1,0 +1,15 @@
+{
+  "include": ["."],
+  "exclude": ["node_modules", ".git", "docs", ".pi"],
+  "pythonVersion": "3.8",
+  "typeCheckingMode": "standard",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportUntypedFunctionDecorator": "warning",
+  "reportUntypedClassDecorator": "warning",
+  "reportUnusedImport": "warning",
+  "reportUnusedVariable": "warning",
+  "reportCallIssue": "warning",
+  "reportAttributeAccessIssue": "warning",
+  "reportArgumentType": "warning"
+}
