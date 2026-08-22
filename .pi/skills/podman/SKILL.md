@@ -65,3 +65,13 @@ podman exec nginx-rtmp ps aux | grep nginx
 - I file di configurazione sono montati da `./nginx.conf` e `./videojs.html`, `./hlsjs.html`
 - I frammenti HLS vanno in `/mnt/hls/` dentro il container
 - Podman-compose è installato nel sistema (v1.5.0)
+
+## Statistiche RTMP
+
+```bash
+# Verifica stream attivi
+curl -s http://localhost:8080/stat
+
+# Log nginx per diagnostica RTMP
+podman logs nginx-rtmp 2>&1 | grep -i rtmp
+```

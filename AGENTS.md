@@ -57,6 +57,16 @@ curl http://localhost:8080/api/status
 curl http://localhost:8080/api/cmd/command/system/locate?p=1
 ```
 
+### Regole operative
+
+- **Verifica GoPro attiva**: `curl -s http://10.5.5.9/gp/gpControl/status` (NON usare ping)
+- **Comandi sudo**: Chiedere all'utente di eseguire e incollare l'output
+- **Skills**: Non mischiare contenuti tra skill diverse
+
+### TODO - Comandi mancanti nella Dashboard
+
+- [ ] Aggiungere comando per avviare streaming UDP: `/execute?p1=gpStream&a1=proto_v2&c1=restart`
+
 ### Struttura
 
 ```
