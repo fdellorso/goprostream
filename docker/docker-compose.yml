@@ -12,12 +12,6 @@ services:
     ports:
       - "1935:1935"
       - "8080:8080"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
     restart: unless-stopped
 
   # ─── GoPro Stream: bridge Python ──────────────────────────
@@ -30,6 +24,5 @@ services:
     env_file:
       - ../.env
     depends_on:
-      nginx-rtmp:
-        condition: service_healthy
+      - nginx-rtmp
     restart: unless-stopped

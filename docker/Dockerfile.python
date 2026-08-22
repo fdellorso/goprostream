@@ -18,8 +18,4 @@ RUN pip install --no-cache-dir pipenv && \
 COPY python/goprostream.py python/goprophoto.py ./
 COPY .env* ./
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import subprocess; subprocess.run(['ffmpeg', '-version'], capture_output=True)" || exit 1
-
 CMD ["python", "goprostream.py"]
