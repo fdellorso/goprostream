@@ -104,13 +104,24 @@ if ping -c 1 -W 3 "$GOPRO_IP" >/dev/null 2>&1; then
 else
     echo "  ⚠ GoPro non raggiungibile"
     echo ""
+    # Verifica se serve il pairing
+    HTTP_OK=$(curl -s --connect-timeout 3 "http://$GOPRO_IP/gp/gpControl/status" >/dev/null 2>&1 && echo "yes" || echo "no")
+    if [ "$HTTP_OK" = "no" ]; then
+        echo "  La GoPro non risponde. Potrebbe essere necessario il pairing."
+        echo ""
+        read -p "  Vuoi avviare il processo di pairing? (s/n) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Ss]$ ]]; then
+            exec "$SCRIPT_DIR/gopro-pair.sh"
+        fi
+    else
+        echo "  La GoPro risponde ma il ping fallisce (normale su alcune GoPro)."
+        echo "  Prova: curl http://$GOPRO_IP/gp/gpControl/status"
+    fi
+    echo ""
     echo "Possibili cause:"
     echo "  1. La GoPro non è accesa"
     echo "  2. Il WiFi non è attivo sulla GoPro"
-    echo "  3. La rete $GOPRO_SSID non è visibile"
+    echo "  3. Serve il pairing (esegui: ./scripts/gopro-pair.sh)"
     echo "  4. Indirizzo IP errato (default: $GOPRO_IP)"
-    echo ""
-    echo "Verifica manualmente:"
-    echo "  ip addr show $WIFI_IF"
-    echo "  ping $GOPRO_IP"
 fi
