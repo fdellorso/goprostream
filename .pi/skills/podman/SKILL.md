@@ -15,22 +15,22 @@ Il file `docker-compose.yml` (compatibile podman-compose) definisce il servizio 
 
 ```bash
 # Avvia lo stack
-podman-compose up -d
+podman-compose -f docker/docker-compose.yml up -d
 
 # Ferma lo stack
-podman-compose down
+podman-compose -f docker/docker-compose.yml down
 
 # Status container
-podman-compose ps
+podman-compose -f docker/docker-compose.yml ps
 
 # Log nginx-rtmp
-podman-compose logs -f nginx-rtmp
+podman-compose -f docker/docker-compose.yml logs -f nginx-rtmp
 
 # Riavvia
-podman-compose restart
+podman-compose -f docker/docker-compose.yml restart
 
 # Build/ricostruisci
-podman-compose up -d --force-recreate
+podman-compose -f docker/docker-compose.yml up -d --force-recreate
 ```
 
 ## Verifica salute servizi
@@ -50,7 +50,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/dash/gopro.mpd
 
 ```bash
 # Log errori
-podman-compose logs --tail=50 nginx-rtmp
+podman-compose -f docker/docker-compose.yml logs --tail=50 nginx-rtmp
 
 # Verifica spazio disco (HLS fragments)
 podman exec nginx-rtmp df -h /mnt/hls

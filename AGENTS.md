@@ -10,6 +10,7 @@ Questo progetto è un **bridge di streaming video** tra una GoPro Hero 4 Black e
 |------|-------|
 | `python/goprostream.py` | Bridge streaming: riceve UDP dalla GoPro, converte in RTMP verso Nginx |
 | `python/goprophoto.py` | Scatto foto remoto e download dalla GoPro |
+| `python/gopro_api.py` | API server (bottle) per dashboard — ATTUALMENTE NON USATO, proxy diretto nginx |
 | `docker/docker-compose.yml` | Stack Podman: nginx-rtmp + goprostream |
 | `docker/nginx.conf` | Configurazione Nginx-RTMP (porta 1935 RTMP, 8080 HTTP) |
 | `docker/Dockerfile.python` | Immagine Python con FFmpeg |
@@ -25,6 +26,8 @@ Questo progetto è un **bridge di streaming video** tra una GoPro Hero 4 Black e
 
 ```
 GoPro ←WiFi Direct→ OUYA ←HTTP HLS→ OctoPrint (LXC su Proxmox)
+
+Browser → nginx (/api/) → GoPro (10.5.5.9) [proxy diretto]
 ```
 
 ### Comandi Utili
@@ -48,6 +51,10 @@ curl -s http://localhost:8080/hls/gopro.m3u8
 
 # Type check Python
 npx pyright
+
+# Test API GoPro
+curl http://localhost:8080/api/status
+curl http://localhost:8080/api/cmd/command/system/locate?p=1
 ```
 
 ### Struttura

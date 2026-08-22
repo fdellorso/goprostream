@@ -13,7 +13,9 @@ COMPOSE="podman-compose -f docker/docker-compose.yml"
 echo "=== GoPro Streaming Server — Stop ==="
 echo ""
 
-$COMPOSE down
+# Ferma i container prima di rimuovere (evita errore netavark/aardvark)
+$COMPOSE stop 2>/dev/null || true
+$COMPOSE down --remove-orphans 2>/dev/null || true
 
 echo ""
 echo "=== Container fermati ==="

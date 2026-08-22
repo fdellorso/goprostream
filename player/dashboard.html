@@ -1,138 +1,816 @@
 <!DOCTYPE html>
 <html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GoPro Stream — Dashboard</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 20px; }
-      h1 { font-size: 1.5rem; margin-bottom: 20px; color: #fff; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-      .card { background: #1a1a1a; border-radius: 12px; padding: 20px; border: 1px solid #333; }
-      .card h2 { font-size: 1rem; color: #888; margin-bottom: 12px; }
-      .status { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-      .dot { width: 10px; height: 10px; border-radius: 50%; }
-      .dot.ok { background: #00ff88; }
-      .dot.err { background: #ff4444; }
-      .dot.warn { background: #ffaa00; }
-      .dot.off { background: #555; }
-      .value { font-size: 1.2rem; font-weight: 600; }
-      .label { font-size: 0.85rem; color: #888; }
-      .stream-preview { width: 100%; border-radius: 8px; margin-top: 12px; background: #000; aspect-ratio: 16/9; object-fit: contain; }
-      #log { font-family: monospace; font-size: 0.8rem; max-height: 200px; overflow-y: auto; background: #111; padding: 10px; border-radius: 8px; margin-top: 12px; }
-      .log-entry { margin: 2px 0; }
-      .log-ok { color: #00ff88; }
-      .log-err { color: #ff4444; }
-      .log-info { color: #888; }
-    </style>
-  </head>
-  <body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GoPro Stream — Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; }
+    .header { padding: 20px; border-bottom: 1px solid #333; }
+    .header h1 { font-size: 1.4rem; color: #fff; }
+    .tabs { display: flex; gap: 0; background: #111; border-bottom: 1px solid #333; }
+    .tab-btn { padding: 12px 24px; background: none; border: none; color: #888; cursor: pointer; font-size: 0.9rem; border-bottom: 2px solid transparent; }
+    .tab-btn:hover { color: #ccc; }
+    .tab-btn.active { color: #fff; border-bottom-color: #00ff88; }
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .grid-wide { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .card { background: #1a1a1a; border-radius: 12px; padding: 16px; border: 1px solid #333; }
+    .card h2 { font-size: 0.9rem; color: #888; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+    .card-full { grid-column: 1 / -1; }
+    .status-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 0.85rem; }
+    .status-label { color: #888; min-width: 120px; }
+    .status-value { font-weight: 600; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot.ok { background: #00ff88; }
+    .dot.err { background: #ff4444; }
+    .dot.warn { background: #ffaa00; }
+    .dot.off { background: #555; }
+    .url-box { font-family: monospace; font-size: 0.75rem; background: #111; padding: 8px; border-radius: 6px; margin: 6px 0; word-break: break-all; }
+    .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
+    .nav-links a { color: #4da6ff; text-decoration: none; padding: 8px 16px; background: #111; border-radius: 8px; font-size: 0.85rem; }
+    .nav-links a:hover { background: #222; }
+    #log { font-family: monospace; font-size: 0.7rem; max-height: 200px; overflow-y: auto; background: #111; padding: 10px; border-radius: 8px; margin-top: 12px; }
+    .log-entry { margin: 2px 0; }
+    .log-ok { color: #00ff88; }
+    .log-err { color: #ff4444; }
+    .log-info { color: #888; }
+    .cmd-block { background: #111; border-radius: 8px; padding: 12px; margin: 8px 0; }
+    .cmd-title { font-size: 0.85rem; color: #00ff88; margin-bottom: 8px; font-weight: 600; }
+    .cmd-desc { font-size: 0.75rem; color: #666; margin-bottom: 8px; }
+    .cmd-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .cmd-btn { padding: 6px 12px; background: #222; border: 1px solid #444; border-radius: 6px; color: #e0e0e0; cursor: pointer; font-size: 0.8rem; }
+    .cmd-btn:hover { background: #333; border-color: #00ff88; }
+    .cmd-btn:active { background: #00ff88; color: #000; }
+    .cmd-input { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .cmd-input input { padding: 6px 10px; background: #222; border: 1px solid #444; border-radius: 6px; color: #e0e0e0; font-size: 0.8rem; flex: 1; min-width: 150px; }
+    .cmd-input input:focus { outline: none; border-color: #00ff88; }
+    .cmd-result { font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; margin-top: 6px; }
+    .cmd-result.ok { background: #003300; color: #00ff88; }
+    .cmd-result.err { background: #330000; color: #ff4444; }
+    .section-title { font-size: 0.8rem; color: #00ff88; margin: 16px 0 8px 0; padding: 6px 0; border-bottom: 1px solid #222; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 600px) {
+      .settings-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
     <h1>🎥 GoPro Stream Dashboard</h1>
+  </div>
 
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="stream">Stream</button>
+    <button class="tab-btn" data-tab="status">Status</button>
+    <button class="tab-btn" data-tab="commands">Commands</button>
+  </div>
+
+  <!-- TAB 1: STREAM -->
+  <div id="tab-stream" class="tab-content active">
     <div class="grid">
-      <!-- Stream Status -->
       <div class="card">
         <h2>Stream Status</h2>
-        <div class="status">
+        <div class="status-row">
           <div class="dot" id="dot-hls"></div>
-          <span>HLS Endpoint</span>
-          <span class="value" id="val-hls">...</span>
+          <span class="status-label">HLS Endpoint</span>
+          <span class="status-value" id="val-hls">...</span>
         </div>
-        <div class="status">
+        <div class="status-row">
           <div class="dot" id="dot-rtmp"></div>
-          <span>RTMP Endpoint</span>
-          <span class="value" id="val-rtmp">...</span>
+          <span class="status-label">RTMP Endpoint</span>
+          <span class="status-value" id="val-rtmp">...</span>
         </div>
-        <div class="status">
+        <div class="status-row">
           <div class="dot" id="dot-gopro"></div>
-          <span>GoPro (10.5.5.9)</span>
-          <span class="value" id="val-gopro">...</span>
+          <span class="status-label">GoPro WiFi</span>
+          <span class="status-value" id="val-gopro">...</span>
         </div>
       </div>
 
-      <!-- Stream Info -->
       <div class="card">
         <h2>Stream Info</h2>
-        <div class="status">
-          <span class="label">HLS URL:</span>
-          <span class="value" style="font-size: 0.9rem; word-break: break-all;">
-            <span id="hls-url">...</span>
-          </span>
-        </div>
-        <div class="status">
-          <span class="label">RTMP URL:</span>
-          <span class="value" style="font-size: 0.9rem; word-break: break-all;">
-            <span id="rtmp-url">...</span>
-          </span>
+        <div class="url-box" id="hls-url">...</div>
+        <div class="url-box" id="rtmp-url">...</div>
+      </div>
+
+      <div class="card">
+        <h2>Player</h2>
+        <div class="nav-links">
+          <a href="/videojs.html">▶ Video.js Player</a>
+          <a href="/hlsjs.html">▶ HLS.js Player</a>
         </div>
       </div>
 
-      <!-- Log -->
-      <div class="card" style="grid-column: 1 / -1;">
+      <div class="card card-full">
         <h2>Log</h2>
         <div id="log"></div>
       </div>
     </div>
+  </div>
 
-    <script>
-      var logEl = document.getElementById('log');
+  <!-- TAB 2: STATUS -->
+  <div id="tab-status" class="tab-content">
+    <div class="grid grid-wide">
+      <div class="card">
+        <h2>📷 Camera</h2>
+        <div class="status-row"><span class="status-label">Modello</span><span class="status-value" id="s-30">...</span></div>
+        <div class="status-row"><span class="status-label">Batteria</span><span class="status-value" id="s-43">...</span></div>
+        <div class="status-row"><span class="status-label">Batteria (lvl)</span><span class="status-value" id="s-2">...</span></div>
+        <div class="status-row"><span class="status-label">SD Card</span><span class="status-value" id="s-33">...</span></div>
+        <div class="status-row"><span class="status-label">Spazio libero</span><span class="status-value" id="s-54">...</span></div>
+        <div class="status-row"><span class="status-label">Foto rimaste</span><span class="status-value" id="s-34">...</span></div>
+        <div class="status-row"><span class="status-label">Video rimanente</span><span class="status-value" id="s-35">...</span></div>
+      </div>
+
+      <div class="card">
+        <h2>🎬 Streaming</h2>
+        <div class="status-row"><span class="status-label">Registrazione</span><span class="status-value" id="s-8">...</span></div>
+        <div class="status-row"><span class="status-label">Streaming</span><span class="status-value" id="s-32">...</span></div>
+        <div class="status-row"><span class="status-label">Modalità</span><span class="status-value" id="s-43m">...</span></div>
+        <div class="status-row"><span class="status-label">Sub-modalità</span><span class="status-value" id="s-44">...</span></div>
+        <div class="status-row"><span class="status-label">Durata video</span><span class="status-value" id="s-13">...</span></div>
+        <div class="status-row"><span class="status-label">Client WiFi</span><span class="status-value" id="s-31">...</span></div>
+      </div>
+
+      <div class="card">
+        <h2>🎬 Video Settings</h2>
+        <div class="status-row"><span class="status-label">Risoluzione</span><span class="status-value" id="set-2">...</span></div>
+        <div class="status-row"><span class="status-label">Frame Rate</span><span class="status-value" id="set-3">...</span></div>
+        <div class="status-row"><span class="status-label">FOV</span><span class="status-value" id="set-4">...</span></div>
+        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" id="set-10">...</span></div>
+        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" id="set-11">...</span></div>
+        <div class="status-row"><span class="status-label">Color</span><span class="status-value" id="set-12">...</span></div>
+        <div class="status-row"><span class="status-label">ISO</span><span class="status-value" id="set-13">...</span></div>
+        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" id="set-14">...</span></div>
+        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" id="set-15">...</span></div>
+        <div class="status-row"><span class="status-label">Low Light</span><span class="status-value" id="set-8">...</span></div>
+        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" id="set-9">...</span></div>
+        <div class="status-row"><span class="status-label">Timelapse Int</span><span class="status-value" id="set-5">...</span></div>
+      </div>
+
+      <div class="card">
+        <h2>📷 Photo Settings</h2>
+        <div class="status-row"><span class="status-label">Megapixels</span><span class="status-value" id="set-17">...</span></div>
+        <div class="status-row"><span class="status-label">Continuous</span><span class="status-value" id="set-18">...</span></div>
+        <div class="status-row"><span class="status-label">Shutter</span><span class="status-value" id="set-19">...</span></div>
+        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" id="set-20">...</span></div>
+        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" id="set-21">...</span></div>
+        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" id="set-22">...</span></div>
+        <div class="status-row"><span class="status-label">Color</span><span class="status-value" id="set-23">...</span></div>
+        <div class="status-row"><span class="status-label">ISO</span><span class="status-value" id="set-24">...</span></div>
+        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" id="set-25">...</span></div>
+        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" id="set-26">...</span></div>
+      </div>
+
+      <div class="card">
+        <h2>📸 MultiShot Settings</h2>
+        <div class="status-row"><span class="status-label">SubMode</span><span class="status-value" id="set-27">...</span></div>
+        <div class="status-row"><span class="status-label">Megapixels</span><span class="status-value" id="set-28">...</span></div>
+        <div class="status-row"><span class="status-label">Burst Rate</span><span class="status-value" id="set-29">...</span></div>
+        <div class="status-row"><span class="status-label">Timelapse Int</span><span class="status-value" id="set-30">...</span></div>
+        <div class="status-row"><span class="status-label">NightLapse Shutter</span><span class="status-value" id="set-31">...</span></div>
+        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" id="set-34">...</span></div>
+        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" id="set-35">...</span></div>
+        <div class="status-row"><span class="status-label">ISO</span><span class="status-value" id="set-37">...</span></div>
+      </div>
+
+      <div class="card">
+        <h2>⚙️ Sistema</h2>
+        <div class="status-row"><span class="status-label">LCD Brightness</span><span class="status-value" id="set-49">...</span></div>
+        <div class="status-row"><span class="status-label">LCD Lock</span><span class="status-value" id="set-50">...</span></div>
+        <div class="status-row"><span class="status-label">LCD Timeout</span><span class="status-value" id="set-51">...</span></div>
+        <div class="status-row"><span class="status-label">Orientation</span><span class="status-value" id="set-52">...</span></div>
+        <div class="status-row"><span class="status-label">Boot Mode</span><span class="status-value" id="set-53">...</span></div>
+        <div class="status-row"><span class="status-label">Quick Capture</span><span class="status-value" id="set-54">...</span></div>
+        <div class="status-row"><span class="status-label">LED</span><span class="status-value" id="set-55">...</span></div>
+        <div class="status-row"><span class="status-label">Beep</span><span class="status-value" id="set-56">...</span></div>
+        <div class="status-row"><span class="status-label">Video Format</span><span class="status-value" id="set-57">...</span></div>
+        <div class="status-row"><span class="status-label">OSD</span><span class="status-value" id="set-58">...</span></div>
+        <div class="status-row"><span class="status-label">Auto Power Off</span><span class="status-value" id="set-59">...</span></div>
+      </div>
+
+      <div class="card">
+        <h2>📶 WiFi / Streaming</h2>
+        <div class="status-row"><span class="status-label">WiFi Mode</span><span class="status-value" id="set-63">...</span></div>
+        <div class="status-row"><span class="status-label">Stream Bitrate</span><span class="status-value" id="set-62">...</span></div>
+        <div class="status-row"><span class="status-label">Stream Window</span><span class="status-value" id="set-64">...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: COMMANDS -->
+  <div id="tab-commands" class="tab-content">
+    <div class="grid grid-wide">
+      <div class="card card-full">
+        <h2>🎬 Controlli Base</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Shutter</div>
+          <div class="cmd-desc">Avvia/ferma registrazione o scatto</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/shutter?p=1')">▶ Start</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/shutter?p=0')">⏹ Stop</button>
+          </div>
+          <div class="cmd-result" id="res-shutter"></div>
+        </div>
+
+        <div class="cmd-block">
+          <div class="cmd-title">Modalità</div>
+          <div class="cmd-desc">Cambia modalità camera</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/mode?p=0')">🎥 Video</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/mode?p=1')">📷 Photo</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/mode?p=2')">📸 MultiShot</button>
+          </div>
+          <div class="cmd-result" id="res-mode"></div>
+        </div>
+
+        <div class="cmd-block">
+          <div class="cmd-title">Sub-Modalità</div>
+          <div class="cmd-desc">Seleziona sottomodalità specifica</div>
+          <div class="cmd-desc">Video:</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=0')">Video</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=1')">TimeLapse Video</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=2')">Video+Photo</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=3')">Looping</button>
+          </div>
+          <div class="cmd-desc">Photo:</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=1&sub_mode=0')">Single</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=1&sub_mode=1')">Continuous</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=1&sub_mode=2')">Night</button>
+          </div>
+          <div class="cmd-desc">MultiShot:</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=2&sub_mode=0')">Burst</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=2&sub_mode=1')">Timelapse</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=2&sub_mode=2')">NightLapse</button>
+          </div>
+          <div class="cmd-result" id="res-submode"></div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>⚙️ Impostazioni Video</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Risoluzione</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/1')">4K</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/2')">4K SuperView</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/4')">2.7K</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/5')">2.7K SuperView</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/6')">2.7K 4:3</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/7')">1440p</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/8')">1080p SuperView</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/9')">1080p</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/10')">960p</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/11')">720p SuperView</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/12')">720p</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/2/13')">WVGA</button>
+          </div>
+          <div class="cmd-result" id="res-res"></div>
+        </div>
+
+        <div class="cmd-block">
+          <div class="cmd-title">Frame Rate</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/0')">240</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/1')">120</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/2')">100</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/3')">90</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/5')">60</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/7')">48</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/8')">30</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/10')">24</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/3/11')">15</button>
+          </div>
+          <div class="cmd-result" id="res-fps"></div>
+        </div>
+
+        <div class="cmd-block">
+          <div class="cmd-title">FOV (Campo Visivo)</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/4/0')">Wide</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/4/1')">Medium</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/4/2')">Narrow</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/4/4')">Linear</button>
+          </div>
+          <div class="cmd-result" id="res-fov"></div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>🎨 Protune</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Protune</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/10/1')">ON</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/10/0')">OFF</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">White Balance</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/0')">Auto</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/1')">3000K</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/2')">5500K</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/3')">6500K</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/4')">Native</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/5')">4000K</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/6')">4800K</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/11/7')">6000K</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Color</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/12/0')">GoPro Color</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/12/1')">Flat</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">ISO Limit</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/13/8')">100</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/13/7')">200</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/13/2')">400</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/13/4')">800</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/13/1')">1600</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/13/3')">3200</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/13/0')">6400</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Sharpness</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/14/0')">High</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/14/1')">Medium</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/14/2')">Low</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">EV Compensation</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/0')">+2.0</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/1')">+1.5</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/2')">+1.0</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/3')">+0.5</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/4')">0.0</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/5')">-0.5</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/6')">-1.0</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/7')">-1.5</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/15/8')">-2.0</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>📷 Impostazioni Photo</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Megapixels</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/17/0')">12MP Wide</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/17/1')">7MP Wide</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/17/2')">7MP Medium</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/17/3')">5MP Medium</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Continuous Rate</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/18/0')">3 fps</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/18/1')">5 fps</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/18/2')">10 fps</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Shutter</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/19/0')">Auto</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/19/1')">2s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/19/2')">5s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/19/3')">10s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/19/4')">15s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/19/5')">20s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/19/6')">30s</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>📸 Impostazioni MultiShot</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">SubMode</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/27/0')">Burst</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/27/1')">TimeLapse</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/27/2')">NightLapse</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Burst Rate</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/0')">3/1</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/1')">5/1</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/2')">10/1</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/3')">10/2</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/4')">10/3</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/5')">30/1</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/6')">30/2</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/7')">30/3</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/29/8')">30/6</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Timelapse Interval</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/30/0')">0.5s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/30/1')">1s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/30/2')">2s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/30/5')">5s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/30/10')">10s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/30/30')">30s</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/30/60')">60s</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>⚙️ Sistema</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Locate (LED)</div>
+          <div class="cmd-desc">Fa lampeggiare le LED della GoPro</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/system/locate?p=1')">🔦 ON</button>
+            <button class="cmd-btn" onclick="goproCmd('/command/system/locate?p=0')">🔦 OFF</button>
+          </div>
+          <div class="cmd-result" id="res-locate"></div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Power</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/system/sleep')">⏻ Power Off</button>
+          </div>
+          <div class="cmd-result" id="res-power"></div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">LCD Brightness</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/49/0')">High</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/49/1')">Medium</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/49/2')">Low</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">LED Status</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/55/0')">OFF</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/55/1')">2 LEDs</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/55/2')">4 LEDs</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Beep Volume</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/56/0')">100%</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/56/1')">70%</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/56/2')">Mute</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Video Format</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/57/0')">NTSC</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/57/1')">PAL</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Auto Power Off</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/59/0')">Never</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/59/1')">1 min</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/59/2')">2 min</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/59/3')">3 min</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/59/4')">5 min</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Boot Mode</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/53/0')">Video</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/53/1')">Photo</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/53/2')">MultiShot</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Orientation</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/52/0')">Auto</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/52/1')">Up</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/52/2')">Down</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>📶 WiFi</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">WiFi AP Mode</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/63/0')">OFF</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/63/1')">App</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/63/2')">GoPro RC</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/63/4')">Smart Remote</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Imposta Nome WiFi</div>
+          <div class="cmd-input">
+            <input type="text" id="wifi-ssid" placeholder="Nome WiFi">
+            <button class="cmd-btn" onclick="goproCmd('/command/wireless/ap/ssid?ssid=' + document.getElementById('wifi-ssid').value)">Imposta</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Imposta Password WiFi</div>
+          <div class="cmd-input">
+            <input type="text" id="wifi-pass" placeholder="Password">
+            <button class="cmd-btn" onclick="goproCmd('/command/wireless/ap/ssid?ssid=' + document.getElementById('wifi-ssid').value + '&pw=' + document.getElementById('wifi-pass').value)">Imposta</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>🗑️ Storage</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Elimina File</div>
+          <div class="cmd-input">
+            <input type="text" id="del-path" placeholder="/100GOPRO/G001.JPG">
+            <button class="cmd-btn" onclick="goproCmd('/command/storage/delete?p=' + document.getElementById('del-path').value)">Elimina</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Elimina Ultimo</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/command/storage/delete/last')">Elimina ultimo media</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">⚠️ Formatta SD (cancella tutto!)</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" style="border-color:#ff4444;color:#ff4444" onclick="if(confirm('Sei sicuro? CANCELLA TUTTO!'))goproCmd('/command/storage/delete/all')">⚠️ Formatta SD</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>📐 Streaming</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Stream Bitrate</div>
+          <div class="cmd-input">
+            <input type="number" id="stream-bitrate" placeholder="250000" value="250000">
+            <button class="cmd-btn" onclick="goproCmd('/setting/62/' + document.getElementById('stream-bitrate').value)">Imposta</button>
+          </div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-title">Stream Window Size</div>
+          <div class="cmd-btns">
+            <button class="cmd-btn" onclick="goproCmd('/setting/64/0')">Default</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/64/1')">240p</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/64/4')">480p</button>
+            <button class="cmd-btn" onclick="goproCmd('/setting/64/7')">720p</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full">
+        <h2>📷 Raw HTTP Command</h2>
+        <div class="cmd-block">
+          <div class="cmd-title">Invio libero</div>
+          <div class="cmd-desc">Inserisci il percorso API (es. /command/shutter?p=1)</div>
+          <div class="cmd-input">
+            <input type="text" id="raw-cmd" placeholder="/command/shutter?p=1">
+            <button class="cmd-btn" onclick="goproCmd(document.getElementById('raw-cmd').value)">Invia</button>
+          </div>
+          <div class="cmd-result" id="res-raw"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var logEl = document.getElementById('log');
+
+    // --- TABS ---
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // --- LOG ---
+    function addLog(msg, cls) {
+      var d = document.createElement('div');
+      d.className = 'log-entry ' + (cls || 'log-info');
+      d.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+      logEl.appendChild(d);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // --- STATUS ---
+    var MODES = {0: 'Video', 1: 'Photo', 2: 'MultiShot'};
+    var SUBMODES_V = {0: 'Video', 1: 'TimeLapse', 2: 'Video+Photo', 3: 'Looping'};
+    var SUBMODES_P = {0: 'Single', 1: 'Continuous', 2: 'Night'};
+    var SUBMODES_M = {0: 'Burst', 1: 'TimeLapse', 2: 'NightLapse'};
+    var RESOLUTIONS = {1:'4K',2:'4K SV',4:'2.7K',5:'2.7K SV',6:'2.7K 4:3',7:'1440p',8:'1080p SV',9:'1080p',10:'960p',11:'720p SV',12:'720p',13:'WVGA'};
+    var FPS = {0:'240',1:'120',2:'100',3:'90',4:'80',5:'60',6:'50',7:'48',8:'30',9:'25',10:'24',11:'15',12:'12.5'};
+    var FOVS = {0:'Wide',1:'Medium',2:'Narrow',4:'Linear'};
+    var WB = {0:'Auto',1:'3000K',2:'5500K',3:'6500K',4:'Native',5:'4000K',6:'4800K',7:'6000K'};
+    var COLORS = {0:'GoPro Color',1:'Flat'};
+    var ISO_V = {0:'6400',1:'1600',2:'400',3:'3200',4:'800',7:'200',8:'100'};
+    var ISO_P = {0:'800',1:'400',2:'200',3:'100'};
+    var SHARP = {0:'High',1:'Medium',2:'Low'};
+    var EV = {0:'+2.0',1:'+1.5',2:'+1.0',3:'+0.5',4:'0.0',5:'-0.5',6:'-1.0',7:'-1.5',8:'-2.0'};
+    var ONOFF = {0:'OFF',1:'ON'};
+    var YESNO = {0:'No',1:'Sì'};
+    var SD = {0:'Inserita',2:'Assente'};
+    var BATT_LVL = {0:'Vuota',1:'Bassa',2:'Media',3:'Piena'};
+    var LCD_BR = {0:'High',1:'Medium',2:'Low'};
+    var LCD_TO = {0:'Never',1:'1min',2:'2min',3:'3min'};
+    var ORIENT = {0:'Auto',1:'Up',2:'Down'};
+    var LED = {0:'OFF',1:'2 LEDs',2:'4 LEDs'};
+    var BEEP = {0:'100%',1:'70%',2:'Mute'};
+    var VID_FMT = {0:'NTSC',1:'PAL'};
+    var APO = {0:'Never',1:'1min',2:'2min',3:'3min',4:'5min'};
+    var WIFI = {0:'OFF',1:'App',2:'GoPro RC',4:'Smart Remote'};
+    var BURST = {0:'3/1',1:'5/1',2:'10/1',3:'10/2',4:'10/3',5:'30/1',6:'30/2',7:'30/3',8:'30/6'};
+    var TL_INT = {0:'0.5s',1:'1s',2:'2s',5:'5s',10:'10s',30:'30s',60:'60s'};
+    var MP = {0:'12MP Wide',1:'7MP Wide',2:'7MP Med',3:'5MP Med'};
+    var CONT = {0:'3fps',1:'5fps',2:'10fps'};
+    var SHUTTER = {0:'Auto',1:'2s',2:'5s',3:'10s',4:'15s',5:'20s',6:'30s'};
+
+    function mapVal(val, map) { return map[val] !== undefined ? map[val] : val; }
+    function setText(id, t) { var e = document.getElementById(id); if (e) e.textContent = t; }
+    function setDot(id, ok) { var e = document.getElementById(id); if (e) e.className = 'dot ' + (ok === true ? 'ok' : ok === false ? 'err' : 'off'); }
+    function fmtBytes(b) { return (b / (1024*1024*1024)).toFixed(1) + ' GB'; }
+
+    function updateStatus() {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/status?t=' + Date.now());
+      xhr.timeout = 5000;
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          try {
+            var d = JSON.parse(xhr.responseText);
+            var s = d.status;
+            var st = d.settings;
+            setDot('dot-gopro', true);
+            setText('val-gopro', 'Connessa');
+            setText('s-30', s['30'] || 'GP26479007');
+            setText('s-43', (s['43'] !== undefined ? s['43'] + '%' : '-'));
+            setText('s-2', mapVal(s['2'], BATT_LVL));
+            setText('s-33', mapVal(s['33'], SD));
+            setText('s-54', s['54'] ? fmtBytes(s['54']) : '-');
+            setText('s-34', s['34'] || '-');
+            setText('s-35', s['35'] ? Math.floor(s['35']/60) + 'min' : '-');
+            setText('s-8', mapVal(s['8'], {0:'Fermo',1:'Registrando'}));
+            setText('s-32', mapVal(s['32'], {0:'No',1:'Sì'}));
+            setText('s-43m', mapVal(s['43'], MODES));
+            setText('s-44', s['44'] !== undefined ? s['44'] : '-');
+            setText('s-13', s['13'] ? s['13'] + 's' : '-');
+            setText('s-31', s['31'] || '0');
+            setText('set-2', mapVal(st['2'], RESOLUTIONS));
+            setText('set-3', mapVal(st['3'], FPS) + ' fps');
+            setText('set-4', mapVal(st['4'], FOVS));
+            setText('set-10', mapVal(st['10'], ONOFF));
+            setText('set-11', mapVal(st['11'], WB));
+            setText('set-12', mapVal(st['12'], COLORS));
+            setText('set-13', mapVal(st['13'], ISO_V));
+            setText('set-14', mapVal(st['14'], SHARP));
+            setText('set-15', mapVal(st['15'], EV));
+            setText('set-8', mapVal(st['8'], ONOFF));
+            setText('set-9', mapVal(st['9'], ONOFF));
+            setText('set-5', mapVal(st['5'], TL_INT));
+            setText('set-17', mapVal(st['17'], MP));
+            setText('set-18', mapVal(st['18'], CONT));
+            setText('set-19', mapVal(st['19'], SHUTTER));
+            setText('set-20', mapVal(st['20'], ONOFF));
+            setText('set-21', mapVal(st['21'], ONOFF));
+            setText('set-22', mapVal(st['22'], WB));
+            setText('set-23', mapVal(st['23'], COLORS));
+            setText('set-24', mapVal(st['24'], ISO_P));
+            setText('set-25', mapVal(st['25'], SHARP));
+            setText('set-26', mapVal(st['26'], EV));
+            setText('set-27', mapVal(st['27'], {0:'Burst',1:'TimeLapse',2:'NightLapse'}));
+            setText('set-28', mapVal(st['28'], MP));
+            setText('set-29', mapVal(st['29'], BURST));
+            setText('set-30', mapVal(st['30'], TL_INT));
+            setText('set-31', mapVal(st['31'], SHUTTER));
+            setText('set-34', mapVal(st['34'], ONOFF));
+            setText('set-35', mapVal(st['35'], WB));
+            setText('set-37', mapVal(st['37'], ISO_P));
+            setText('set-49', mapVal(st['49'], LCD_BR));
+            setText('set-50', mapVal(st['50'], ONOFF));
+            setText('set-51', mapVal(st['51'], LCD_TO));
+            setText('set-52', mapVal(st['52'], ORIENT));
+            setText('set-53', mapVal(st['53'], MODES));
+            setText('set-54', mapVal(st['54'], ONOFF));
+            setText('set-55', mapVal(st['55'], LED));
+            setText('set-56', mapVal(st['56'], BEEP));
+            setText('set-57', mapVal(st['57'], VID_FMT));
+            setText('set-58', mapVal(st['58'], ONOFF));
+            setText('set-59', mapVal(st['59'], APO));
+            setText('set-63', mapVal(st['63'], WIFI));
+            setText('set-62', st['62'] ? (st['62']/1000) + ' kbps' : '-');
+            setText('set-64', mapVal(st['64'], {0:'Default',1:'240p',4:'480p',7:'720p',8:'720p 3:4',9:'720p 1:2'}));
+            addLog('Status aggiornato', 'log-ok');
+          } catch(e) {
+            addLog('Errore parsing status', 'log-err');
+          }
+        }
+      };
+      xhr.onerror = xhr.ontimeout = function() {
+        setDot('dot-gopro', false);
+        setText('val-gopro', 'Non connessa');
+        addLog('GoPro non raggiungibile', 'log-err');
+      };
+      xhr.send();
+    }
+
+    function checkHLS() {
       var hlsUrl = window.location.origin + '/hls/gopro.m3u8';
       var rtmpUrl = 'rtmp://' + window.location.hostname + ':1935/live/gopro';
+      document.getElementById('hls-url').textContent = 'HLS: ' + hlsUrl;
+      document.getElementById('rtmp-url').textContent = 'RTMP: ' + rtmpUrl;
+      var xhr = new XMLHttpRequest();
+      xhr.open('HEAD', hlsUrl + '?t=' + Date.now());
+      xhr.timeout = 3000;
+      xhr.onload = function() { setDot('dot-hls', true); setText('val-hls', 'Attivo'); };
+      xhr.onerror = xhr.ontimeout = function() { setDot('dot-hls', false); setText('val-hls', 'Non attivo'); };
+      xhr.send();
+      setDot('dot-rtmp', true);
+      setText('val-rtmp', 'Porta 1935');
+    }
 
-      document.getElementById('hls-url').textContent = hlsUrl;
-      document.getElementById('rtmp-url').textContent = rtmpUrl;
+    // --- COMMANDS ---
+    // ─── Vecchia implementazione (Python API) ─────────────────
+    // function goproCmd(path) {
+    //   var xhr = new XMLHttpRequest();
+    //   xhr.open('POST', '/api/cmd', true);
+    //   xhr.setRequestHeader('Content-Type', 'application/json');
+    //   xhr.timeout = 5000;
+    //   addLog('CMD: ' + path, 'log-info');
+    //   xhr.onload = function() {
+    //     var r = xhr.responseText.trim();
+    //     var isOk = r === '{}{}' || r === '{}' || (xhr.status === 200 && !r.includes('error'));
+    //     addLog('RIS: ' + r, isOk ? 'log-ok' : 'log-err');
+    //     document.querySelectorAll('.cmd-result').forEach(function(el) {
+    //       if (el.id === 'res-raw') {
+    //         el.textContent = r;
+    //         el.className = 'cmd-result ' + (isOk ? 'ok' : 'err');
+    //       }
+    //     });
+    //   };
+    //   xhr.onerror = xhr.ontimeout = function() {
+    //     addLog('ERR: timeout o connessione fallita', 'log-err');
+    //   };
+    //   xhr.send(JSON.stringify({path: path}));
+    // }
 
-      function addLog(msg, cls) {
-        var d = document.createElement('div');
-        d.className = 'log-entry ' + (cls || 'log-info');
-        d.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-        logEl.appendChild(d);
-        logEl.scrollTop = logEl.scrollHeight;
-      }
+    // ─── Nuova implementazione (Nginx proxy diretto) ──────────
+    function goproCmd(path) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/cmd' + path, true);
+      xhr.timeout = 5000;
+      addLog('CMD: ' + path, 'log-info');
+      xhr.onload = function() {
+        var r = xhr.responseText.trim();
+        var isOk = r === '{}{}' || r === '{}' || (xhr.status === 200 && !r.includes('error'));
+        addLog('RIS: ' + r, isOk ? 'log-ok' : 'log-err');
+        document.querySelectorAll('.cmd-result').forEach(function(el) {
+          if (el.id === 'res-raw') {
+            el.textContent = r;
+            el.className = 'cmd-result ' + (isOk ? 'ok' : 'err');
+          }
+        });
+      };
+      xhr.onerror = xhr.ontimeout = function() {
+        addLog('ERR: timeout o connessione fallita', 'log-err');
+      };
+      xhr.send();
+    }
 
-      function setStatus(dotId, valId, ok, text) {
-        var dot = document.getElementById(dotId);
-        var val = document.getElementById(valId);
-        dot.className = 'dot ' + (ok === true ? 'ok' : ok === false ? 'err' : 'off');
-        val.textContent = text;
-      }
-
-      function checkHLS() {
-        var xhr = new XMLHttpRequest();
-        xhr.open('HEAD', hlsUrl + '?t=' + Date.now());
-        xhr.timeout = 3000;
-        xhr.onload = function() {
-          setStatus('dot-hls', 'val-hls', true, 'Attivo');
-          addLog('HLS endpoint raggiungibile', 'log-ok');
-        };
-        xhr.onerror = xhr.ontimeout = function() {
-          setStatus('dot-hls', 'val-hls', false, 'Non attivo');
-          addLog('HLS endpoint non raggiungibile', 'log-err');
-        };
-        xhr.send();
-      }
-
-      function checkGoPro() {
-        // Non possiamo fare ping dal browser, mostriamo stato manuale
-        setStatus('dot-gopro', 'val-gopro', null, 'Verifica manuale');
-        addLog('GoPro: verifica con ./wifi-connect.sh', 'log-info');
-      }
-
-      function checkRTMP() {
-        // RTMP non verificabile via HTTP, mostriamo stato
-        setStatus('dot-rtmp', 'val-rtmp', null, 'Porta 1935');
-        addLog('RTMP: ' + rtmpUrl, 'log-info');
-      }
-
-      // Check iniziale
-      addLog('Dashboard avviata', 'log-info');
-      checkHLS();
-      checkRTMP();
-      checkGoPro();
-
-      // Check periodico HLS
-      setInterval(checkHLS, 5000);
-    </script>
-  </body>
+    // --- INIT ---
+    addLog('Dashboard avviata', 'log-info');
+    checkHLS();
+    updateStatus();
+    setInterval(checkHLS, 10000);
+    setInterval(updateStatus, 10000);
+  </script>
+</body>
 </html>

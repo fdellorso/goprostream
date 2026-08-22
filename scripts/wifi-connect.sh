@@ -90,17 +90,38 @@ if command -v nmcli >/dev/null 2>&1; then
     fi
 elif command -v wpa_supplicant >/dev/null 2>&1; then
     echo "  Usando wpa_supplicant..."
-    WPA_CONF=$(mktemp /tmp/gopro-wpa-XXXX.conf)
-    cat > "$WPA_CONF" <<EOF
-network={
-    ssid="$GOPRO_SSID"
-    psk="$GOPRO_PASS"
-    key_mgmt=WPA-PSK
-}
-EOF
-    wpa_supplicant -i "$WIFI_IF" -c "$WPA_CONF" -B
-    sleep 3
-    rm -f "$WPA_CONF"
+
+    # Verifica se wpa_supplicant è già attivo
+    if sv status wpa_supplicant 2>/dev/null | grep -q "^run:"; then
+        echo "  wpa_supplicant già attivo"
+    else
+        echo "  Avvio wpa_supplicant..."
+        ln -sf /etc/sv/wpa_supplicant /var/service/
+        sv start wpa_supplicant
+        sleep 2
+    fi
+
+    # Verifica se la rete è già configurata
+    if ! wpa_cli list_networks 2>/dev/null | grep -q "$GOPRO_SSID"; then
+        echo "  Aggiunta rete..."
+        NET_ID=$(wpa_cli add_network 2>/dev/null | tail -1)
+        wpa_cli set_network "$NET_ID" ssid "\"$GOPRO_SSID\"" 2>/dev/null
+        wpa_cli set_network "$NET_ID" psk "\"$GOPRO_PASS\"" 2>/dev/null
+        wpa_cli set_network "$NET_ID" key_mgmt WPA-PSK 2>/dev/null
+    fi
+
+    echo "  Connessione in corso..."
+    wpa_cli enable_network 0 2>/dev/null
+    wpa_cli select_network 0 2>/dev/null
+
+    # Aspetta connessione (max 15 secondi)
+    for i in $(seq 1 15); do
+        if wpa_cli status 2>/dev/null | grep -q "wpa_state=COMPLETED"; then
+            echo "  ✓ WiFi connesso"
+            break
+        fi
+        sleep 1
+    done
 else
     echo "  ✗ Nessuno strumento WiFi trovato"
     echo "  Connettiti manualmente alla rete $GOPRO_SSID"
@@ -111,7 +132,8 @@ echo ""
 # ─── 3. DHCP ─────────────────────────────────────────────────
 
 echo "[3/5] Ottieni IP via DHCP..."
-dhclient "$WIFI_IF" 2>/dev/null || udhcpc -i "$WIFI_IF" 2>/dev/null || true
+dhcpcd "$WIFI_IF" 2>/dev/null || true
+sleep 3
 echo ""
 
 # ─── 4. Verifica GoPro e stato pairing ───────────────────────
