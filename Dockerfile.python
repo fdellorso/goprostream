@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 # FFmpeg è necessario per la conversione UDP→RTMP
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get install -y --no-install-recommends ffmpeg curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -10,12 +10,16 @@ WORKDIR /app
 # Installa dipendenze Python
 COPY Pipfile Pipfile.lock* ./
 RUN pip install --no-cache-dir pipenv && \
-    pipenv requirements > requirements.txt 2>/dev/null && \
-    pip install --no-cache-dir -r requirements.txt || \
-    pip install --no-cache-dir goprocam
+    (pipenv requirements > requirements.txt 2>/dev/null && \
+     pip install --no-cache-dir -r requirements.txt || \
+     pip install --no-cache-dir goprocam)
 
 # Copia il codice
 COPY goprostream.py goprophoto.py ./
 COPY .env* ./
+
+# Health check: verifica che ffmpeg sia installato
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import subprocess; subprocess.run(['ffmpeg', '-version'], capture_output=True)" || exit 1
 
 CMD ["python", "goprostream.py"]
