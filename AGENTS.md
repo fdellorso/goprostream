@@ -99,6 +99,7 @@ La cartella `docs/references/` contiene la documentazione GoPro Hero 4 archiviat
 | `docs/references/hero4-livestreaming.md` | Streaming UDP, FFmpeg, bitrate |
 | `docs/references/hero4-status.md` | Campi JSON status |
 | `docs/references/gopro-py-api.md` | Libreria goprocam |
+| `docs/references/hero4-pairing.md` | **Pairing senza app** (fondamentale!) |
 | `docs/references/goprowifihack.md` | Indice repository |
 
 ### Note Sviluppo
