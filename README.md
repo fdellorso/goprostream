@@ -12,105 +12,85 @@ GoPro Hero 4 ──WiFi Direct──► OUYA (ARMv7l) ──HLS──► OctoPri
 
 ## Requisiti
 
-### Hardware
-
 - **GoPro Hero 4 Black** con WiFi attivo e batteria carica
-- **OUYA** (ARMv7l, Tegra 3) o equivalente con:
-  - Linux (Debian/Ubuntu consigliato)
-  - Podman + podman-compose
-  - Connessione WiFi (per collegarsi alla GoPro)
+- **OUYA** (ARMv7l, Tegra 3) o equivalente con Linux e Podman
 - **Server** con OctoPrint 1.9.0+ (opzionale, per visualizzazione)
-
-### Software (installati automaticamente da `setup.sh`)
-
-- Python 3.11+ (nel container)
-- FFmpeg (nel container)
-- Node.js + npm (solo per pyright, development)
 
 ## Installazione
 
 ```bash
-# 1. Clone del repo
 git clone https://github.com/fdellorso/goprostream.git
 cd goprostream
 
-# 2. Setup (build container, installa deps)
-./setup.sh
+# Setup (build container, verifica deps)
+./scripts/setup.sh
 
-# 3. Configura
+# Configura
 cp .env.example .env
-nano .env  # Modifica IP GoPro, SSID, ecc.
+nano .env
 
-# 4. Connetti WiFi alla GoPro
-./wifi-connect.sh
+# Connetti WiFi alla GoPro
+./scripts/wifi-connect.sh
 
-# 5. Avvia streaming
-./start.sh
+# Avvia streaming
+./scripts/start.sh
 ```
 
 ## Comandi
 
 | Comando | Descrizione |
 |---------|-------------|
-| `./setup.sh` | Setup iniziale: build container, verifica deps |
-| `./start.sh` | Avvia streaming: verifica GoPro, avvia container |
-| `./stop.sh` | Ferma tutti i container |
-| `./wifi-connect.sh` | Connette alla rete WiFi Direct della GoPro |
-| `podman-compose ps` | Stato container |
-| `podman-compose logs -f` | Log container |
+| `./scripts/setup.sh` | Setup iniziale: build container, verifica deps |
+| `./scripts/start.sh` | Avvia streaming: verifica GoPro, avvia container |
+| `./scripts/stop.sh` | Ferma tutti i container |
+| `./scripts/wifi-connect.sh` | Connette alla rete WiFi Direct della GoPro |
+| `npx pyright` | Type check Python |
 
 ## Accesso
 
 | Servizio | URL |
 |----------|-----|
-| Player web | `http://<ouya_ip>:8080/` |
+| Dashboard | `http://<ouya_ip>:8080/` |
+| Player HLS | `http://<ouya_ip>:8080/hlsjs.html` |
 | Stream HLS | `http://<ouya_ip>:8080/hls/gopro.m3u8` |
 | Stream RTMP | `rtmp://<ouya_ip>:1935/live/gopro` |
-
-## Configurazione (.env)
-
-```bash
-GOPRO_IP=10.5.5.9        # IP della GoPro
-GOPRO_SSID=GOPRO-BP-FD   # SSID WiFi Direct
-GOPRO_PASS=goprohero      # Password WiFi
-RTMP_URL=rtmp://localhost:1935/live/gopro
-HLS_PORT=8080
-RTMP_PORT=1935
-```
 
 ## Struttura del Progetto
 
 ```
-├── goprostream.py              # Bridge streaming UDP → RTMP
-├── goprophoto.py               # Scatto foto remoto
-├── Dockerfile.python           # Immagine Python container
-├── docker-compose.yml          # Stack: nginx-rtmp + goprostream
-├── nginx.conf                  # Configurazione Nginx-RTMP
-├── setup.sh                    # Setup iniziale
-├── start.sh                    # Avvio streaming
-├── stop.sh                     # Ferma container
-├── wifi-connect.sh             # Connessione WiFi GoPro
-├── Pipfile / Pipfile.lock      # Dipendenze Python
-├── pyrightconfig.json          # Configurazione type checker
-├── .env.example                # Template configurazione
-├── player/                     # Player web (offline, no CDN)
-│   ├── hlsjs.html              # Player con hls.js
-│   ├── videojs.html            # Player con Video.js
-│   ├── js/                     # Librerie JS locali
-│   └── css/                    # CSS locali
-├── .pi/                        # Risorse pi-coding-agent
-│   ├── settings.json
-│   ├── skills/                 # Skill: podman, python, ffmpeg
-│   ├── extensions/             # Extension: python-lsp, commands
-│   └── prompts/                # Template prompt
-├── docs/
-│   ├── architecture.md         # Architettura e topologia
-│   ├── context.md              # Contesto e device
-│   ├── setup-octoprint.md      # Guida setup OctoPrint
-│   ├── references/             # API GoPro Hero 4 (archiviate)
-│   ├── handoff/                # Handoff tecnici
-│   └── plans/                  # Piano di sviluppo
-└── AGENTS.md                   # Contesto progetto per l'agente
+├── python/                 # Codice Python
+│   ├── goprostream.py      # Bridge streaming UDP → RTMP
+│   ├── goprophoto.py       # Scatto foto remoto
+│   ├── Pipfile             # Dipendenze
+│   └── pyrightconfig.json  # Type checker
+├── docker/                 # Infrastruttura container
+│   ├── docker-compose.yml  # Stack: nginx-rtmp + goprostream
+│   ├── Dockerfile.python   # Immagine Python container
+│   └── nginx.conf          # Configurazione Nginx-RTMP
+├── player/                 # Player web offline
+│   ├── dashboard.html      # Dashboard monitoraggio
+│   ├── hlsjs.html          # Player hls.js
+│   ├── videojs.html        # Player Video.js
+│   ├── js/                 # Librerie JS locali
+│   └── css/                # CSS locali
+├── scripts/                # Script di gestione
+│   ├── setup.sh            # Setup iniziale
+│   ├── start.sh            # Avvio streaming
+│   ├── stop.sh             # Ferma container
+│   └── wifi-connect.sh     # Connessione WiFi GoPro
+├── docs/                   # Documentazione
+│   ├── architecture.md     # Architettura e topologia
+│   ├── context.md          # Contesto e device
+│   ├── setup-octoprint.md  # Guida setup OctoPrint
+│   ├── references/         # API GoPro Hero 4 (archiviate)
+│   ├── handoff/            # Handoff tecnici
+│   └── plans/              # Piano di sviluppo
+├── .pi/                    # Risorse pi-coding-agent
+│   ├── skills/             # Skill: podman, python, ffmpeg
+│   ├── extensions/         # Extension: python-lsp, commands
+│   └── prompts/            # Template prompt
+├── .env.example            # Template configurazione
+└── AGENTS.md               # Contesto progetto per l'agente
 ```
 
 ## Architettura Container
@@ -118,22 +98,13 @@ RTMP_PORT=1935
 ```
 Host (OUYA)
 │
-├── nginx-rtmp (container)
-│   ├── Porta 1935 (RTMP input)
-│   ├── Porta 8080 (HTTP/HLS output)
-│   └── Rete: bridge
+├── nginx-rtmp (container)   ← Rete bridge, porta 1935 + 8080
 │
-└── goprostream (container)
-    ├── network_mode: host
+└── goprostream (container)  ← network_mode: host
     ├── Python 3.11 + FFmpeg
     ├── Connessione a GoPro (10.5.5.9)
     └── Push RTMP a localhost:1935
 ```
-
-### Perché `network_mode: host`
-
-Il container Python deve raggiungere la GoPro su `10.5.5.9` (WiFi Direct).
-Con host networking, il container usa la stessa rete dell'OUYA.
 
 ## OctoPrint
 
@@ -143,28 +114,6 @@ Per visualizzare lo stream nell'interfaccia OctoPrint:
 2. Imposta Stream URL: `http://<ouya_ip>:8080/hls/gopro.m3u8`
 
 Vedi `docs/setup-octoprint.md` per dettagli.
-
-## Troubleshooting
-
-| Problema | Soluzione |
-|----------|-----------|
-| Container non si avvia | `podman-compose logs nginx-rtmp` |
-| GoPro non raggiungibile | `./wifi-connect.sh` poi `ping 10.5.5.9` |
-| Stream non visibile | Verifica `curl http://localhost:8080/hls/gopro.m3u8` |
-| FFmpeg crash | Controlla log: `podman-compose logs goprostream` |
-| Player non funziona | Verifica che nginx sia up: `podman-compose ps` |
-
-## Development
-
-```bash
-# Type check Python
-npx pyright
-
-# Comandi pi (se in sessione)
-/typecheck      # Esegue pyright
-/status         # Verifica stato componenti
-/handoff        # Genera documento handoff
-```
 
 ## License
 

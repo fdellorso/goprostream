@@ -7,11 +7,22 @@ description: Sviluppo e gestione del codice Python del progetto (goprostream.py,
 
 Sviluppo Python per il progetto goprostream.
 
+## Struttura
+
+```
+python/
+├── goprostream.py    # Streaming bridge (UDP → RTMP)
+├── goprophoto.py     # Scatto foto e download
+├── Pipfile           # Dipendenze
+├── Pipfile.lock      # Lock file
+└── pyrightconfig.json # Configurazione type checker
+```
+
 ## Dipendenze
 
-Il progetto usa `Pipfile` per la gestione delle dipendenze.
-
 ```bash
+cd python/
+
 # Installa dipendenze
 pipenv install
 
@@ -32,38 +43,24 @@ pipenv run python goprophoto.py
 Pyright è installato come dev dependency nel progetto.
 
 ```bash
-# Esegui pyright sul progetto
+# Dal root del progetto
 npx pyright
 
-# Output dettagliato
-npx pyright --outputjson
-
 # Verifica un singolo file
-npx pyright goprostream.py
+npx pyright python/goprostream.py
 ```
 
 ### Configurazione
 
-Il file `pyrightconfig.json` nella root del progetto configura pyright per:
-- Python 3.8+ (compatibile con Pipfile)
-- Strict type checking
-- Include paths: `.` (root del progetto)
+Il file `python/pyrightconfig.json` configura pyright per:
+- Python 3.11+
+- Standard type checking
+- Include paths: `.` (directory python)
 
 ### Warning comuni
 
 - `reportMissingImports` - Dipendenza mancante (eseguire `pipenv install`)
-- `reportUntypedFunction` - Funzione senza type hints
 - `reportAttributeAccessError` - Attributo non esistente su un oggetto
-- `reportCallIssue` - Parametri mancanti o errati in una chiamata
-
-## Struttura del codice
-
-```
-goprostream.py    # Streaming bridge (UDP → RTMP)
-goprophoto.py     # Scatto foto e download
-Pipfile           # Dipendenze
-Pipfile.lock      # Lock file
-```
 
 ## Libreria goprocam - Note per Hero4
 
@@ -73,20 +70,17 @@ from goprocam import GoProCamera, constants
 # Connessione automatica
 gopro = GoProCamera.GoPro()
 
-# Indirizzo IP (default 10.5.5.9)
-gopro.ip_addr
-
 # Streaming
 gopro.livestream("start")  # Avvia UDP stream
 gopro.KeepAlive()          # Mantiene attivo il WiFi (ogni ~10s)
 
 # Controllo
-gopro.mode(constants.Mode.VideoMode)  # Imposta modalità video
-gopro.take_photo(3)                   # Scatta foto
-gopro.shoot_video(10)                 # Registra 10 secondi
+gopro.mode(constants.Mode.VideoMode)
+gopro.take_photo(3)
+gopro.shoot_video(10)
 
 # Power
-gopro.power_off()  # Spegni GoPro
+gopro.power_off()
 ```
 
 ## Riferimenti GoPro (archiviati localmente)

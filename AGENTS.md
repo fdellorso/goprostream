@@ -8,12 +8,12 @@ Questo progetto è un **bridge di streaming video** tra una GoPro Hero 4 Black e
 
 | File | Ruolo |
 |------|-------|
-| `goprostream.py` | Bridge streaming: riceve UDP dalla GoPro, converte in RTMP verso Nginx |
-| `goprophoto.py` | Scatto foto remoto e download dalla GoPro |
-| `docker-compose.yml` | Stack Podman: nginx-rtmp per generare HLS |
-| `nginx.conf` | Configurazione Nginx-RTMP (porta 1935 RTMP, 8080 HTTP) |
-| `hlsjs.html` | Player web con hls.js |
-| `videojs.html` | Player web con Video.js |
+| `python/goprostream.py` | Bridge streaming: riceve UDP dalla GoPro, converte in RTMP verso Nginx |
+| `python/goprophoto.py` | Scatto foto remoto e download dalla GoPro |
+| `docker/docker-compose.yml` | Stack Podman: nginx-rtmp + goprostream |
+| `docker/nginx.conf` | Configurazione Nginx-RTMP (porta 1935 RTMP, 8080 HTTP) |
+| `docker/Dockerfile.python` | Immagine Python con FFmpeg |
+| `player/` | Player web offline (hls.js, video.js, dashboard) |
 
 ### Hardware
 
@@ -30,29 +30,63 @@ GoPro ←WiFi Direct→ OUYA ←HTTP HLS→ OctoPrint (LXC su Proxmox)
 ### Comandi Utili
 
 ```bash
-# Avvia stack streaming
-podman-compose up -d
+# Setup iniziale
+./scripts/setup.sh
 
-# Esegui streaming (dopo che podman-compose è attivo)
-pipenv run python goprostream.py
+# Connetti WiFi GoPro
+./scripts/wifi-connect.sh
+
+# Avvia streaming
+./scripts/start.sh
+
+# Ferma streaming
+./scripts/stop.sh
+
+# Verifica status
+podman-compose -f docker/docker-compose.yml ps
+curl -s http://localhost:8080/hls/gopro.m3u8
 
 # Type check Python
 npx pyright
-
-# Verifica status
-podman-compose ps
-curl -s http://localhost:8080/hls/gopro.m3u8
 ```
 
-### Dipendenze Python
+### Struttura
 
-- `goprocam` — Libreria controllo GoPro via WiFi
-- Sistema: `ffmpeg` (già installato)
-
-### Container
-
-- `nginx-rtmp` — Media server (image: `vallahaye/nginx-rtmp:stable-alpine`)
-- Porte: `1935` (RTMP), `8080` (HTTP/HLS)
+```
+├── python/                     # Codice Python
+│   ├── goprostream.py          # Bridge streaming
+│   ├── goprophoto.py           # Scatto foto
+│   ├── Pipfile                 # Dipendenze
+│   └── pyrightconfig.json      # Type checker
+├── docker/                     # Infrastruttura container
+│   ├── docker-compose.yml      # Stack Podman
+│   ├── Dockerfile.python       # Immagine Python
+│   └── nginx.conf              # Configurazione Nginx
+├── player/                     # Player web offline
+│   ├── dashboard.html          # Dashboard monitoraggio
+│   ├── hlsjs.html              # Player hls.js
+│   ├── videojs.html            # Player Video.js
+│   ├── js/                     # Librerie JS locali
+│   └── css/                    # CSS locali
+├── scripts/                    # Script di gestione
+│   ├── setup.sh                # Setup iniziale
+│   ├── start.sh                # Avvio streaming
+│   ├── stop.sh                 # Ferma container
+│   └── wifi-connect.sh         # Connessione WiFi GoPro
+├── docs/                       # Documentazione
+│   ├── architecture.md
+│   ├── context.md
+│   ├── setup-octoprint.md
+│   ├── references/             # API GoPro Hero 4
+│   ├── handoff/
+│   └── plans/
+├── .pi/                        # Risorse pi-coding-agent
+│   ├── skills/
+│   ├── extensions/
+│   └── prompts/
+├── .env.example                # Template configurazione
+└── AGENTS.md                   # Questo file
+```
 
 ### Riferimenti (Le Nostre Skill)
 
@@ -61,20 +95,16 @@ La cartella `docs/references/` contiene la documentazione GoPro Hero 4 archiviat
 
 | File | Contenuto |
 |------|----------|
-| `hero4-commands.md` | TUTTI i comandi WiFi (video, photo, protune, sistema) |
-| `hero4-livestreaming.md` | Streaming UDP, FFmpeg, bitrate |
-| `hero4-status.md` | Campi JSON status |
-| `gopro-py-api.md` | Libreria goprocam |
-| `goprowifihack.md` | Indice repository |
-
-### Altra Documentazione
-
-- `docs/architecture.md` — Architettura completa e topologia di rete
-- `docs/context.md` — Contesto progetto e device
+| `docs/references/hero4-commands.md` | TUTTI i comandi WiFi (video, photo, protune, sistema) |
+| `docs/references/hero4-livestreaming.md` | Streaming UDP, FFmpeg, bitrate |
+| `docs/references/hero4-status.md` | Campi JSON status |
+| `docs/references/gopro-py-api.md` | Libreria goprocam |
+| `docs/references/goprowifihack.md` | Indice repository |
 
 ### Note Sviluppo
 
-- Pyright è configurato per Python 3.8+ con type checking standard
+- Pyright è configurato per Python 3.11+ con type checking standard
 - Il progetto gira su ARMv7l (OUYA) — attenzione a dipendenze native
-- Podman-compose al posto di docker-compose (rootless, compatibile)
+- Podman-compose per i container (rootless, compatibile)
 - OctoPrint usa Classic Webcam (non Iframe) per visualizzare lo stream HLS
+- Il container Python usa `network_mode: host` per raggiungere la GoPro

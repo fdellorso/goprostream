@@ -5,12 +5,15 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$ROOT_DIR"
+
+COMPOSE="podman-compose -f docker/docker-compose.yml"
 
 echo "=== GoPro Streaming Server — Stop ==="
 echo ""
 
-podman-compose down 2>/dev/null || docker-compose down
+$COMPOSE down
 
 echo ""
 echo "=== Container fermati ==="

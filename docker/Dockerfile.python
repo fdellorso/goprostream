@@ -8,17 +8,17 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Installa dipendenze Python
-COPY Pipfile Pipfile.lock* ./
+COPY python/Pipfile python/Pipfile.lock* ./
 RUN pip install --no-cache-dir pipenv && \
     (pipenv requirements > requirements.txt 2>/dev/null && \
      pip install --no-cache-dir -r requirements.txt || \
      pip install --no-cache-dir goprocam)
 
 # Copia il codice
-COPY goprostream.py goprophoto.py ./
+COPY python/goprostream.py python/goprophoto.py ./
 COPY .env* ./
 
-# Health check: verifica che ffmpeg sia installato
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import subprocess; subprocess.run(['ffmpeg', '-version'], capture_output=True)" || exit 1
 

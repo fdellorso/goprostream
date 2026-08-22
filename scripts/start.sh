@@ -5,7 +5,10 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$ROOT_DIR"
+
+COMPOSE="podman-compose -f docker/docker-compose.yml"
 
 echo "=== GoPro Streaming Server — Start ==="
 echo ""
@@ -31,7 +34,7 @@ else
     echo "  Possibili cause:"
     echo "    1. La GoPro non è accesa"
     echo "    2. Non sei connesso alla rete WiFi Direct"
-    echo "    3. Esegui prima: ./wifi-connect.sh"
+    echo "    3. Esegui prima: ./scripts/wifi-connect.sh"
     echo ""
     read -p "  Continuo comunque? (s/n) " -n 1 -r
     echo ""
@@ -45,12 +48,11 @@ echo ""
 
 echo "[2/3] Avvio container..."
 
-# Controlla se i container sono già attivi
-if podman-compose ps 2>/dev/null | grep -q "goprostream.*Up"; then
+if $COMPOSE ps 2>/dev/null | grep -q "goprostream.*Up"; then
     echo "  ✓ Container goprostream già attivo"
 else
     echo "  Avvio..."
-    podman-compose up -d 2>/dev/null || docker-compose up -d
+    $COMPOSE up -d
     echo "  ✓ Container avviati"
 fi
 echo ""
@@ -58,7 +60,7 @@ echo ""
 # ─── 4. Verifica stato ──────────────────────────────────────
 
 echo "[3/3] Stato:"
-podman-compose ps 2>/dev/null || docker-compose ps
+$COMPOSE ps
 echo ""
 
 echo "=== Streaming attivo! ==="
@@ -68,7 +70,5 @@ echo "  HLS:     http://localhost:$HLS_PORT/hls/gopro.m3u8"
 echo "  RTMP:    rtmp://localhost:1935/live/gopro"
 echo ""
 echo "Ferma con:"
-echo "  podman-compose down"
-echo "  # oppure"
-echo "  ./stop.sh"
+echo "  ./scripts/stop.sh"
 echo ""

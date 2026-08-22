@@ -8,6 +8,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$ROOT_DIR"
+
 # ─── Configurazione ──────────────────────────────────────────
 
 if [ -f .env ]; then
@@ -17,20 +21,18 @@ fi
 GOPRO_SSID="${GOPRO_SSID:-GOPRO-BP-FD}"
 GOPRO_PASS="${GOPRO_PASS:-goprohero}"
 GOPRO_IP="${GOPRO_IP:-10.5.5.9}"
-GATEWAY="${GATEWAY:-10.5.5.9}"
 
 echo "=== GoPro WiFi Connect ==="
 echo ""
 echo "SSID:     $GOPRO_SSID"
 echo "Password: $GOPRO_PASS"
-echo "Gateway:  $GATEWAY"
+echo "Gateway:  $GOPRO_IP"
 echo ""
 
 # ─── Rileva interfaccia ──────────────────────────────────────
 
 echo "[1/4] Rilevamento interfaccia WiFi..."
 
-# Cerca un'interfaccia wireless
 WIFI_IF=""
 for iface in wlan0 wlan1 wlp2s0 wlp3s0; do
     if ip link show "$iface" >/dev/null 2>&1; then
@@ -39,7 +41,6 @@ for iface in wlan0 wlan1 wlp2s0 wlp3s0; do
     fi
 done
 
-# Fallback: cerca qualsiasi interfaccia wireless
 if [ -z "$WIFI_IF" ]; then
     WIFI_IF=$(ip -o link show | awk -F': ' '/wl/{print $2}' | head -1)
 fi
@@ -56,23 +57,17 @@ echo ""
 
 echo "[2/4] Connessione alla rete GoPro..."
 
-# Verifica se nmcli è disponibile
 if command -v nmcli >/dev/null 2>&1; then
     echo "  Usando nmcli..."
-
-    # Cerca se la rete è già configurata
     if nmcli connection show "$GOPRO_SSID" >/dev/null 2>&1; then
-        echo "  Connessione esistente trovata, riconnessione..."
+        echo "  Connessione esistente, riconnessione..."
         nmcli connection up "$GOPRO_SSID" 2>/dev/null || true
     else
         echo "  Creazione connessione..."
         nmcli device wifi connect "$GOPRO_SSID" password "$GOPRO_PASS" ifname "$WIFI_IF"
     fi
-
-# Fallback: wpa_supplicant
 elif command -v wpa_supplicant >/dev/null 2>&1; then
     echo "  Usando wpa_supplicant..."
-    # Crea configurazione temporanea
     WPA_CONF=$(mktemp /tmp/gopro-wpa-XXXX.conf)
     cat > "$WPA_CONF" <<EOF
 network={
@@ -84,11 +79,10 @@ EOF
     wpa_supplicant -i "$WIFI_IF" -c "$WPA_CONF" -B
     sleep 3
     rm -f "$WPA_CONF"
-
 else
     echo "  ✗ Nessuno strumento WiFi trovato (nmcli o wpa_supplicant)"
     echo "  Connettiti manualmente alla rete $GOPRO_SSID"
-    read -p "  Premi Enter quando connesso..." 
+    read -p "  Premi Enter quando connesso..."
 fi
 echo ""
 
@@ -105,8 +99,8 @@ echo "[4/4] Verifica connessione..."
 if ping -c 1 -W 3 "$GOPRO_IP" >/dev/null 2>&1; then
     echo "  ✓ GoPro raggiungibile su $GOPRO_IP"
     echo ""
-    echo "Connessione stabilita! Ora puoi avviare lo streaming:"
-    echo "  ./start.sh"
+    echo "Connessione stabilita! Avvia lo streaming:"
+    echo "  ./scripts/start.sh"
 else
     echo "  ⚠ GoPro non raggiungibile"
     echo ""

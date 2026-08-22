@@ -6,8 +6,8 @@ services:
     image: vallahaye/nginx-rtmp:stable-alpine
     container_name: nginx-rtmp
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./player:/mnt/player:ro
+      - ../docker/nginx.conf:/etc/nginx/nginx.conf
+      - ../player:/mnt/player:ro
     ports:
       - "1935:1935"
       - "8080:8080"
@@ -22,12 +22,12 @@ services:
   # ─── GoPro Stream: bridge Python ──────────────────────────
   goprostream:
     build:
-      context: .
-      dockerfile: Dockerfile.python
+      context: ..
+      dockerfile: docker/Dockerfile.python
     container_name: goprostream
     network_mode: host
     env_file:
-      - .env
+      - ../.env
     depends_on:
       nginx-rtmp:
         condition: service_healthy

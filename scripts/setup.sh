@@ -5,7 +5,10 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$ROOT_DIR"
+
+COMPOSE="podman-compose -f docker/docker-compose.yml"
 
 echo "=== GoPro Streaming Server — Setup ==="
 echo ""
@@ -26,11 +29,10 @@ check_cmd() {
 
 MISSING=0
 check_cmd podman          || MISSING=1
-check_cmd podman-compose  || MISSING=1
 
 if [ "$MISSING" -eq 1 ]; then
     echo ""
-    echo "ERRORE: podman e podman-compose sono obbligatori."
+    echo "ERRORE: podman è obbligatorio."
     exit 1
 fi
 echo ""
@@ -50,10 +52,10 @@ echo ""
 # ─── 3. Verifica Dockerfile ──────────────────────────────────
 
 echo "[3/6] Verifica Dockerfile..."
-if [ -f Dockerfile.python ]; then
-    echo "  ✓ Dockerfile.python presente"
+if [ -f docker/Dockerfile.python ]; then
+    echo "  ✓ docker/Dockerfile.python presente"
 else
-    echo "  ✗ Dockerfile.python mancante"
+    echo "  ✗ docker/Dockerfile.python mancante"
     exit 1
 fi
 echo ""
@@ -61,19 +63,19 @@ echo ""
 # ─── 4. Build immagine Python ────────────────────────────────
 
 echo "[4/6] Build immagine goprostream..."
-podman-compose build goprostream 2>/dev/null || docker-compose build goprostream
+$COMPOSE build goprostream
 echo "  ✓ Immagine buildata"
 echo ""
 
 # ─── 5. Avvia container ──────────────────────────────────────
 
 echo "[5/6] Avvio container..."
-podman-compose up -d 2>/dev/null || docker-compose up -d
+$COMPOSE up -d
 
 # Attendi che nginx sia pronto
 echo "  Attendo nginx..."
 for i in $(seq 1 20); do
-    if podman-compose ps 2>/dev/null | grep -q "healthy\|Up"; then
+    if $COMPOSE ps 2>/dev/null | grep -q "healthy\|Up"; then
         echo "  ✓ Container avviati"
         break
     fi
@@ -87,16 +89,16 @@ echo ""
 # ─── 6. Verifica stato ──────────────────────────────────────
 
 echo "[6/6] Stato container:"
-podman-compose ps 2>/dev/null || docker-compose ps
+$COMPOSE ps
 echo ""
 
 echo "=== Setup completato! ==="
 echo ""
 echo "Avvio streaming:"
-echo "  ./wifi-connect.sh   # Connetti WiFi alla GoPro"
-echo "  ./start.sh           # Avvia streaming"
+echo "  ./scripts/wifi-connect.sh   # Connetti WiFi alla GoPro"
+echo "  ./scripts/start.sh           # Avvia streaming"
 echo ""
 echo "Stato:"
-echo "  podman-compose ps"
+echo "  podman-compose -f docker/docker-compose.yml ps"
 echo "  curl http://localhost:8080/"
 echo ""

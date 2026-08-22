@@ -1,7 +1,7 @@
 {
   "include": ["."],
   "exclude": ["node_modules", ".git", "docs", ".pi"],
-  "pythonVersion": "3.8",
+  "pythonVersion": "3.11",
   "typeCheckingMode": "standard",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
