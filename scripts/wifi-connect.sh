@@ -18,7 +18,7 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-GOPRO_SSID="${GOPRO_SSID:-GOPRO-BP-FD}"
+GOPRO_SSID="${GOPRO_SSID:-GP26479007}"
 GOPRO_PASS="${GOPRO_PASS:-goprohero}"
 GOPRO_IP="${GOPRO_IP:-10.5.5.9}"
 
