@@ -2,9 +2,10 @@
 # GoPro WiFi Connect
 # Si connette alla rete WiFi Direct della GoPro Hero 4.
 #
-# La GoPro crea una rete con SSID: GOPRO-BP-XXXX
-# Password: goprohero
-# IP GoPro: 10.5.5.9
+# Credenziali:
+#   SSID: GP<numero_seriale> (es. GP26479007)
+#   Password: goprohero
+#   IP: 10.5.5.9
 
 set -e
 
@@ -18,9 +19,30 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-GOPRO_SSID="${GOPRO_SSID:-GP26479007}"  # Formato: GP<numero_seriale>
+GOPRO_SSID="${GOPRO_SSID:-GP26479007}"
 GOPRO_PASS="${GOPRO_PASS:-goprohero}"
 GOPRO_IP="${GOPRO_IP:-10.5.5.9}"
+
+# ─── Funzioni ────────────────────────────────────────────────
+
+check_pairing_done() {
+    # Se settings.63=1 (App mode) E status.31>=1 (client connesso)
+    # → pairing già fatto, non serve chiedere
+    local status=$(curl -s --connect-timeout 3 "http://$GOPRO_IP/gp/gpControl/status" 2>/dev/null)
+    if [ -z "$status" ]; then
+        return 1  # GoPro non risponde
+    fi
+
+    local wifi_mode=$(echo "$status" | python3 -c "import sys,json; print(json.load(sys.stdin)['settings']['63'])" 2>/dev/null)
+    local clients=$(echo "$status" | python3 -c "import sys,json; print(json.load(sys.stdin)['status']['31'])" 2>/dev/null)
+
+    if [ "$wifi_mode" = "1" ] && [ "$clients" -ge 1 ] 2>/dev/null; then
+        return 0  # Pairing fatto
+    fi
+    return 1
+}
+
+# ─── Main ────────────────────────────────────────────────────
 
 echo "=== GoPro WiFi Connect ==="
 echo ""
@@ -29,9 +51,9 @@ echo "Password: $GOPRO_PASS"
 echo "Gateway:  $GOPRO_IP"
 echo ""
 
-# ─── Rileva interfaccia ──────────────────────────────────────
+# ─── 1. Rileva interfaccia WiFi ──────────────────────────────
 
-echo "[1/4] Rilevamento interfaccia WiFi..."
+echo "[1/5] Rilevamento interfaccia WiFi..."
 
 WIFI_IF=""
 for iface in wlan0 wlan1 wlp2s0 wlp3s0; do
@@ -53,9 +75,9 @@ fi
 echo "  ✓ Interfaccia: $WIFI_IF"
 echo ""
 
-# ─── Connetti alla rete GoPro ────────────────────────────────
+# ─── 2. Connetti alla rete GoPro ─────────────────────────────
 
-echo "[2/4] Connessione alla rete GoPro..."
+echo "[2/5] Connessione alla rete GoPro..."
 
 if command -v nmcli >/dev/null 2>&1; then
     echo "  Usando nmcli..."
@@ -80,48 +102,68 @@ EOF
     sleep 3
     rm -f "$WPA_CONF"
 else
-    echo "  ✗ Nessuno strumento WiFi trovato (nmcli o wpa_supplicant)"
+    echo "  ✗ Nessuno strumento WiFi trovato"
     echo "  Connettiti manualmente alla rete $GOPRO_SSID"
     read -p "  Premi Enter quando connesso..."
 fi
 echo ""
 
-# ─── Ottieni IP via DHCP ─────────────────────────────────────
+# ─── 3. DHCP ─────────────────────────────────────────────────
 
-echo "[3/4] Ottieni IP via DHCP..."
+echo "[3/5] Ottieni IP via DHCP..."
 dhclient "$WIFI_IF" 2>/dev/null || udhcpc -i "$WIFI_IF" 2>/dev/null || true
 echo ""
 
-# ─── Verifica connessione ────────────────────────────────────
+# ─── 4. Verifica GoPro e stato pairing ───────────────────────
 
-echo "[4/4] Verifica connessione..."
+echo "[4/5] Verifica GoPro..."
 
-if ping -c 1 -W 3 "$GOPRO_IP" >/dev/null 2>&1; then
-    echo "  ✓ GoPro raggiungibile su $GOPRO_IP"
-    echo ""
-    echo "Connessione stabilita! Avvia lo streaming:"
-    echo "  ./scripts/start.sh"
-else
-    echo "  ⚠ GoPro non raggiungibile"
-    echo ""
-    # Verifica se serve il pairing
-    HTTP_OK=$(curl -s --connect-timeout 3 "http://$GOPRO_IP/gp/gpControl/status" >/dev/null 2>&1 && echo "yes" || echo "no")
-    if [ "$HTTP_OK" = "no" ]; then
-        echo "  La GoPro non risponde. Potrebbe essere necessario il pairing."
+if curl -s --connect-timeout 3 "http://$GOPRO_IP/gp/gpControl/status" >/dev/null 2>&1; then
+    echo "  ✓ GoPro raggiungibile"
+
+    # Controlla se pairing è già fatto
+    if check_pairing_done; then
+        echo "  ✓ Pairing già completato (client connesso)"
         echo ""
-        read -p "  Vuoi avviare il processo di pairing? (s/n) " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Ss]$ ]]; then
-            exec "$SCRIPT_DIR/gopro-pair.sh"
-        fi
-    else
-        echo "  La GoPro risponde ma il ping fallisce (normale su alcune GoPro)."
-        echo "  Prova: curl http://$GOPRO_IP/gp/gpControl/status"
+        echo "Connessione stabilita! Avvia lo streaming:"
+        echo "  ./scripts/start.sh"
+        exit 0
     fi
+
+    # GoPro risponde ma nessun client connesso → chiedi
+    echo "  ⚠ GoPro raggiungibile ma nessun client connesso"
+    echo ""
+    echo "  Serve il pairing? (la rete potrebbe scadere tra 2 minuti)"
+    echo "  Se hai già fatto il pairing in precedenza, rispondi 'n'"
+    echo ""
+    read -p "  Serve il pairing? (s/n) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Ss]$ ]]; then
+        exec "$SCRIPT_DIR/gopro-pair.sh"
+    else
+        echo "  Ok, continua senza pairing."
+        echo ""
+        echo "Avvia lo streaming:"
+        echo "  ./scripts/start.sh"
+    fi
+else
+    echo "  ❌ GoPro non raggiungibile"
     echo ""
     echo "Possibili cause:"
     echo "  1. La GoPro non è accesa"
-    echo "  2. Il WiFi non è attivo sulla GoPro"
-    echo "  3. Serve il pairing (esegui: ./scripts/gopro-pair.sh)"
-    echo "  4. Indirizzo IP errato (default: $GOPRO_IP)"
+    echo "  2. Il WiFi non è attivo (premi pulsante WiFi)"
+    echo "  3. Serve il pairing → esegui: ./scripts/gopro-pair.sh"
+    echo ""
+    read -p "  Vuoi avviare il pairing? (s/n) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Ss]$ ]]; then
+        exec "$SCRIPT_DIR/gopro-pair.sh"
+    fi
 fi
+
+echo ""
+echo "[5/5] Stato finale:"
+echo ""
+echo "  GoPro:  $GOPRO_IP"
+echo "  Rete:   $GOPRO_SSID"
+echo ""
