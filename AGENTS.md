@@ -65,7 +65,7 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 
 ### TODO - Comandi mancanti nella Dashboard
 
-- [ ] Aggiungere comando per avviare streaming UDP: `/execute?p1=gpStream&a1=proto_v2&c1=restart`
+- [x] Aggiungere comando per avviare streaming UDP: `/execute?p1=gpStream&a1=proto_v2&c1=restart`
 
 ### Struttura
 
@@ -93,6 +93,7 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 ├── docs/                       # Documentazione
 │   ├── architecture.md
 │   ├── context.md
+│   ├── streaming-lifecycle.md   # Ciclo vita streaming (stati, flussi, soluzioni)
 │   ├── setup-octoprint.md
 │   ├── references/             # API GoPro Hero 4
 │   ├── handoff/
@@ -126,3 +127,22 @@ La cartella `docs/references/` contiene la documentazione GoPro Hero 4 archiviat
 - Podman-compose per i container (rootless, compatibile)
 - OctoPrint usa Classic Webcam (non Iframe) per visualizzare lo stream HLS
 - Il container Python usa `network_mode: host` per raggiungere la GoPro
+
+### Streaming Lifecycle
+
+Lo streaming UDP parte solo quando l'utente lo richiede dalla dashboard (pulsante "Avvia Stream").
+Prima di quel comando, FFmpeg è in ascolto ma non riceve nulla dalla GoPro.
+
+- **Stato A (after accensione)**: GoPro accesa, FFmpeg in ascolto, nessun flusso UDP
+- **Stato B (after restart)**: GoPro streamma, FFmpeg converte, Nginx genera HLS
+- **Soluzione on-demand**: Documentata in `docs/streaming-lifecycle.md`
+
+### Dashboard
+
+La dashboard (`player/dashboard.html`) è la UI principale per:
+- Monitorare lo stato dello stream (HLS, RTMP, GoPro WiFi)
+- Controllare la GoPro (tutti i comandi WiFi)
+- Avviare/fermare lo streaming
+
+Le pagine player (`videojs.html`, `hlsjs.html`) hanno header armonizzata con la dashboard.
+Il check HLS usa `xhr.status === 200` per verificare lo stato reale dello stream.

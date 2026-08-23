@@ -1,6 +1,6 @@
 ---
 name: ffmpeg-streaming
-description: Gestione del flusso video con FFmpeg: conversione UDP->RTMP, diagnostica stream, test di connettivita con la GoPro. Usa quando serve verificare, testare o modificare il pipeline di streaming.
+description: "Gestione del flusso video con FFmpeg: conversione UDP->RTMP; diagnostica stream; test di connettivita con la GoPro. Usa quando serve verificare, testare o modificare il pipeline di streaming."
 ---
 
 # FFmpeg Streaming Skill

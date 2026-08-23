@@ -6,10 +6,10 @@ verso Nginx-RTMP per generare lo stream HLS.
 """
 
 import logging
+import multiprocessing
 import os
 import signal
 import subprocess
-import threading
 import time
 from typing import Optional
 
@@ -34,35 +34,64 @@ log = logging.getLogger("goprostream")
 
 # ─── KeepAlive ───────────────────────────────────────────────
 
-class KeepAliveTimer:
-    """Mantiene attivo il WiFi della GoPro inviando KeepAlive a intervallo regolare."""
 
-    def __init__(self, gopro: GoProCamera.GoPro, interval: int = 8) -> None:
-        self._gopro = gopro
-        self._interval = interval
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+def _keepalive_worker(ip_addr: str) -> None:
+    """Worker per il keepalive. Gira in processo separato."""
+    from goprocam import GoProCamera
+
+    gopro = GoProCamera.GoPro(ip_addr)
+    log.info("KeepAlive worker avviato")
+    gopro.KeepAlive()  # While True della libreria
+
+
+class KeepAliveTimer:
+    """Mantiene attivo il WiFi della GoPro in processo separato."""
+
+    def __init__(self, gopro: GoProCamera.GoPro) -> None:
+        self._ip_addr = gopro.ip_addr
+        self._process: Optional[multiprocessing.Process] = None
 
     def start(self) -> None:
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-        log.info("KeepAlive avviato (ogni %ds)", self._interval)
+        """Avvia il processo KeepAlive."""
+        if self._process and self._process.is_alive():
+            log.warning("KeepAlive già in esecuzione")
+            return
+
+        self._process = multiprocessing.Process(
+            target=_keepalive_worker,
+            args=(self._ip_addr,),
+            daemon=True,
+            name="KeepAlive",
+        )
+        self._process.start()
+        log.info("KeepAlive avviato (PID: %d)", self._process.pid)
 
     def stop(self) -> None:
-        self._stop_event.set()
-        if self._thread:
-            self._thread.join(timeout=3)
+        """Ferma il processo KeepAlive in modo pulito."""
+        if not self._process:
+            return
+
+        if self._process.is_alive():
+            log.info("Ferma KeepAlive (PID: %d)...", self._process.pid)
+            self._process.terminate()  # SIGTERM
+            self._process.join(timeout=3)
+
+            if self._process.is_alive():
+                log.warning("KeepAlive non risponde, kill forzato")
+                self._process.kill()  # SIGKILL
+                self._process.join(timeout=2)
+
         log.info("KeepAlive fermato")
 
-    def _run(self) -> None:
-        while not self._stop_event.is_set():
-            try:
-                self._gopro.KeepAlive()
-                log.debug("KeepAlive inviato")
-            except Exception as e:
-                log.warning("KeepAlive fallito: %s", e)
-            self._stop_event.wait(self._interval)
+    @property
+    def is_running(self) -> bool:
+        """True se il processo è attivo."""
+        return self._process is not None and self._process.is_alive()
+
+    @property
+    def pid(self) -> Optional[int]:
+        """PID del processo."""
+        return self._process.pid if self._process else None
 
 
 # ─── Streaming ───────────────────────────────────────────────
@@ -106,8 +135,8 @@ class GoProStream:
             log.error("FFmpeg è terminato immediatamente: %s", err_output)
             raise RuntimeError(f"FFmpeg non è partito: {err_output}")
 
-        # Avvia KeepAlive
-        self._keepalive = KeepAliveTimer(self._gopro, KEEPALIVE_INTERVAL)
+        # Avvia KeepAlive (ora è un processo)
+        self._keepalive = KeepAliveTimer(self._gopro)
         self._keepalive.start()
 
         log.info("Streaming attivo. Ctrl+C per fermare.")
