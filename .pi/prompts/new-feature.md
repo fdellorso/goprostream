@@ -13,4 +13,5 @@ Prima di implementare:
 Dopo aver implementato:
 1. Esegui `npx pyright` per verificare il codice
 2. Testa che il progetto funzioni ancora
-3. Crea un commit con `/commit feat: <descrizione>`
+3. Genera handoff con `/handoff <cosa ho fatto>`
+4. Crea un commit con `/commit feat: <descrizione>`
