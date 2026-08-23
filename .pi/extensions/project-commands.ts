@@ -11,6 +11,7 @@ import { join } from "node:path";
  * - /commit — Crea un commit git con messaggio strutturato
  * - /status — Verifica stato di tutti i componenti
  * - /stream — Avvia il pipeline di streaming
+ * - /debug — Diagnostica completa del sistema
  */
 export default function (pi: ExtensionAPI) {
   const cwd = process.cwd();
@@ -129,10 +130,20 @@ ${args || "_Nessuna nota specifica fornita._"}
       }
 
       try {
-        // Aggiungi tutto e committa
-        execSync("git add -A", { cwd });
+        // Aggiungi solo file tracked modificati (no -A)
+        execSync("git add -u", { cwd });
+        // Verifica se ci sono staged changes
+        const staged = execSync("git diff --cached --name-only", {
+          cwd,
+          encoding: "utf-8",
+        }).trim();
+        if (!staged) {
+          ctx.ui.notify("Nessuna modifica da committare", "error");
+          return;
+        }
         execSync(`git commit -m "${type}: ${desc}"`, { cwd, encoding: "utf-8" });
-        ctx.ui.notify(`Commit creato: ${type}: ${desc}`, "info");
+        const fileList = staged.split("\n").join(", ");
+        ctx.ui.notify(`Commit creato: ${type}: ${desc}\nFile: ${fileList}`, "info");
       } catch (e: any) {
         const output = e.stdout || e.message || "Errore sconosciuto";
         ctx.ui.notify(`Errore commit:\n${output}`, "error");
@@ -181,14 +192,16 @@ ${args || "_Nessuna nota specifica fornita._"}
         checks.push("FFmpeg: non verificabile");
       }
 
-      // GoPro
+      // GoPro (usa curl, NON ping — vedi AGENTS.md)
       try {
-        const ping = execSync("timeout 2 ping -c 1 10.5.5.9 2>/dev/null && echo raggiungibile || echo non_raggiungibile", {
+        const status = execSync("curl -s --max-time 3 http://10.5.5.9/gp/gpControl/status", {
           encoding: "utf-8",
         }).trim();
-        checks.push(`GoPro: ${ping.includes("raggiungibile") ? "connessa" : "non connessa"}`);
+        const parsed = JSON.parse(status);
+        const goproStatus = parsed.status?.["3"] ?? "unknown";
+        checks.push(`GoPro: connessa (status: ${goproStatus})`);
       } catch {
-        checks.push("GoPro: non raggiungibile");
+        checks.push("GoPro: non connessa o non raggiungibile");
       }
 
       // Pyright
@@ -208,18 +221,124 @@ ${args || "_Nessuna nota specifica fornita._"}
 
   // ─── /stream ──────────────────────────────────────────────
   pi.registerCommand("stream", {
-    description: "Avvia il pipeline di streaming (podman-compose + goprostream.py)",
+    description: "Avvia lo stack di streaming (podman-compose up -d)",
     handler: async (_args, ctx) => {
       try {
-        ctx.ui.notify("Avvio nginx-rtmp...", "info");
+        ctx.ui.notify("Avvio stack streaming...", "info");
         execSync("podman-compose up -d", { cwd, encoding: "utf-8" });
-        ctx.ui.notify(
-          "nginx-rtmp avviato. Ora esegui: pipenv run python goprostream.py",
-          "info"
-        );
+        ctx.ui.notify("Stack avviato. Container: nginx-rtmp + goprostream", "info");
       } catch (e: any) {
-        ctx.ui.notify(`Errore avvio podman-compose:\n${e.message}`, "error");
+        ctx.ui.notify(`Errore avvio stack:\n${e.message}`, "error");
       }
+    },
+  });
+
+  // ─── /debug ──────────────────────────────────────────────
+  pi.registerCommand("debug", {
+    description: "Diagnostica completa: GoPro, FFmpeg, Nginx, HLS, Python",
+    handler: async (_args, ctx) => {
+      const results: string[] = [];
+      const ok = "\u2705";
+      const fail = "\u274c";
+      const warn = "\u26a0\ufe0f";
+
+      // 1. GoPro
+      try {
+        const status = execSync("curl -s --max-time 3 http://10.5.5.9/gp/gpControl/status", {
+          encoding: "utf-8",
+        }).trim();
+        const parsed = JSON.parse(status);
+        const wifi = parsed.status?.["3"] ?? "?";
+        const recording = parsed.status?.["50"] ?? "?";
+        results.push(`${ok} GoPro: WiFi=${wifi}, REC=${recording}`);
+      } catch {
+        results.push(`${fail} GoPro: non raggiungibile`);
+      }
+
+      // 2. FFmpeg
+      try {
+        const ffmpeg = execSync('pgrep -a ffmpeg 2>/dev/null || echo ""', {
+          encoding: "utf-8",
+        }).trim();
+        if (ffmpeg) {
+          const pid = ffmpeg.split(" ")[0];
+          results.push(`${ok} FFmpeg: attivo (PID ${pid})`);
+        } else {
+          results.push(`${warn} FFmpeg: non attivo`);
+        }
+      } catch {
+        results.push(`${fail} FFmpeg: non verificabile`);
+      }
+
+      // 3. Container Podman
+      try {
+        const ps = execSync(
+          "podman-compose -f docker/docker-compose.yml ps --format '{{.Name}}: {{.Status}}'",
+          { encoding: "utf-8", cwd }
+        ).trim();
+        if (ps) {
+          ps.split("\n").forEach((line) => {
+            const up = line.includes("Up");
+            results.push(`${up ? ok : fail} Container: ${line}`);
+          });
+        } else {
+          results.push(`${warn} Container: nessuno in esecuzione`);
+        }
+      } catch {
+        results.push(`${fail} Podman: compose non disponibile`);
+      }
+
+      // 4. Nginx RTMP stat
+      try {
+        const stat = execSync("curl -s --max-time 3 http://localhost:8080/stat", {
+          encoding: "utf-8",
+        });
+        const hasLive = stat.includes("<live>");
+        const hasStream = stat.includes("gopro");
+        if (hasStream) {
+          results.push(`${ok} RTMP: stream gopro attivo`);
+        } else if (hasLive) {
+          results.push(`${warn} RTMP: nginx attivo, nessuno stream attivo`);
+        } else {
+          results.push(`${fail} RTMP: stat non raggiungibile`);
+        }
+      } catch {
+        results.push(`${fail} RTMP: nginx non raggiungibile`);
+      }
+
+      // 5. HLS endpoint
+      try {
+        const hls = execSync(
+          "curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:8080/hls/gopro.m3u8",
+          { encoding: "utf-8" }
+        ).trim();
+        if (hls === "200") {
+          results.push(`${ok} HLS: /hls/gopro.m3u8 disponibile`);
+        } else {
+          results.push(`${warn} HLS: stato HTTP ${hls}`);
+        }
+      } catch {
+        results.push(`${fail} HLS: endpoint non raggiungibile`);
+      }
+
+      // 6. Pyright
+      try {
+        const pyright = execSync("npx pyright 2>&1 | tail -3", {
+          encoding: "utf-8",
+          timeout: 30000,
+        }).trim();
+        const errors = pyright.match(/(\d+) error/)?.[1] ?? "?";
+        const warnings = pyright.match(/(\d+) warning/)?.[1] ?? "?";
+        const clean = errors === "0" && warnings === "0";
+        results.push(`${clean ? ok : warn} Pyright: ${errors} errori, ${warnings} warning`);
+      } catch {
+        results.push(`${fail} Pyright: non disponibile`);
+      }
+
+      ctx.ui.notify(
+        `=== DIAGNOSTICA ===\n${results.join("\n")}`,
+        "info"
+      );
     },
   });
 }

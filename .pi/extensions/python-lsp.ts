@@ -4,8 +4,8 @@ import { execSync } from "node:child_process";
 /**
  * Python LSP Extension
  *
- * Registra un tool custom che esegue pyright per diagnosticare
- * il codice Python del progetto e restituisce i warning/error.
+ * Registra un tool custom python_typecheck che esegue pyright
+ * per diagnosticare il codice Python del progetto.
  */
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
@@ -46,19 +46,5 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("typecheck", {
-    description: "Esegue pyright sul progetto Python",
-    handler: async (args, ctx) => {
-      try {
-        const fileArg = args ? ` ${args}` : "";
-        const output = execSync(`npx pyright${fileArg} 2>&1`, {
-          encoding: "utf-8",
-          timeout: 30000,
-        });
-        ctx.ui.notify(output, "info");
-      } catch (error: any) {
-        ctx.ui.notify(error.stdout || "Type check failed", "error");
-      }
-    },
-  });
+
 }

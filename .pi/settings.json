@@ -2,14 +2,6 @@
   "skills": [
     ".pi/skills/podman",
     ".pi/skills/python",
-    ".pi/skills/ffmpeg-streaming",
-    ".pi/skills/superdesign"
-  ],
-  "extensions": [
-    ".pi/extensions/python-lsp.ts",
-    ".pi/extensions/project-commands.ts"
-  ],
-  "packages": [],
-  "themes": [],
-  "prompts": []
+    ".pi/skills/ffmpeg-streaming"
+  ]
 }

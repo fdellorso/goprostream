@@ -57,6 +57,17 @@ curl http://localhost:8080/api/status
 curl http://localhost:8080/api/cmd/command/system/locate?p=1
 ```
 
+### Comandi Pi (custom)
+
+| Comando | Descrizione |
+|---------|-------------|
+| `/status` | Stato Git, Podman, FFmpeg, GoPro, Pyright |
+| `/debug` | Diagnostica completa con emoji (GoPro, FFmpeg, Container, RTMP, HLS, Pyright) |
+| `/stream` | Avvia stack streaming (podman-compose up -d) |
+| `/commit <tipo>: <desc>` | Git commit con formato strutturato |
+| `/handoff [note]` | Genera snapshot sessione in docs/handoff/ |
+| `python_typecheck` | Tool: esegue pyright su tutto o un file specifico |
+
 ### Regole operative
 
 - **Verifica GoPro attiva**: `curl -s http://10.5.5.9/gp/gpControl/status` (NON usare ping)
@@ -103,14 +114,24 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 │   ├── handoff/
 │   └── plans/
 ├── .pi/                        # Risorse pi-coding-agent
-│   ├── skills/
-│   ├── extensions/
-│   └── prompts/
+│   ├── skills/                 # ffmpeg-streaming, podman, python
+│   ├── extensions/             # project-commands.ts, python-lsp.ts
+│   ├── prompts/                # debug-stream, new-feature, review-stream
+│   └── settings.json
 ├── .env.example                # Template configurazione
 └── AGENTS.md                   # Questo file
 ```
 
-### Riferimenti (Le Nostre Skill)
+### Documentazione
+
+| File | Contenuto |
+|------|----------|
+| `docs/architecture.md` | Architettura completa del sistema, scelte architetturali, sicurezza |
+| `docs/streaming-lifecycle.md` | Ciclo di vita streaming: stati, sequenza temporale, soluzioni on-demand |
+| `docs/setup-octoprint.md` | Setup OctoPrint con Classic Webcam |
+| `docs/handoff/` | Snapshot delle sessioni di sviluppo |
+
+### Riferimenti GoPro (Le Nostre Skill)
 
 La cartella `docs/references/` contiene la documentazione GoPro Hero 4 archiviata localmente.
 **Consultare PRIMA questi file** prima di cercare online.
