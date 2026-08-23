@@ -2,6 +2,8 @@
   "skills": [
     ".pi/skills/podman",
     ".pi/skills/python",
-    ".pi/skills/ffmpeg-streaming"
+    ".pi/skills/ffmpeg-streaming",
+    ".pi/skills/frontend-design",
+    ".pi/skills/css-layout"
   ]
 }

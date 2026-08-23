@@ -114,7 +114,7 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 │   ├── handoff/
 │   └── plans/
 ├── .pi/                        # Risorse pi-coding-agent
-│   ├── skills/                 # ffmpeg-streaming, podman, python
+│   ├── skills/                 # ffmpeg-streaming, podman, python, css-layout, frontend-design
 │   ├── extensions/             # project-commands.ts, python-lsp.ts
 │   ├── prompts/                # debug-stream, new-feature, review-stream
 │   └── settings.json

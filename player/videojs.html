@@ -4,28 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GoPro Stream — Video.js</title>
+    <link href="/css/base.css" rel="stylesheet">
     <link href="/css/video-js.min.css" rel="stylesheet" />
     <script src="/js/video.min.js"></script>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; }
-      .header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; position: relative; z-index: 10; }
-      .header h1 { font-size: 1.4rem; color: #fff; }
-      .nav-links { display: flex; gap: 10px; }
-      .nav-links a { color: #888; text-decoration: none; padding: 8px 16px; border: 1px solid #333; border-radius: 8px; font-size: 0.85rem; transition: all 0.2s; }
-      .nav-links a:hover { color: #fff; border-color: #555; background: #1a1a1a; }
-      .nav-links a.active { color: #00ff88; border-color: #00ff88; }
+      body { display: flex; flex-direction: column; }
       .player-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
-      .player-container { background: #1a1a1a; border-radius: 12px; border: 1px solid #333; width: 100%; max-width: 1200px; overflow: hidden; aspect-ratio: 16/9; }
+      .player-container { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); width: 100%; max-width: 1200px; overflow: hidden; aspect-ratio: 16/9; }
       .video-js { width: 100% !important; height: 100% !important; }
       .vjs-tech { width: 100% !important; height: 100% !important; }
-      .status-bar { padding: 12px 20px; border-top: 1px solid #333; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #888; }
-      .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; margin-right: 6px; display: inline-block; }
-      .status-dot.ok { background: #00ff88; }
-      .status-dot.err { background: #ff4444; }
-      .nav-links a:focus { outline: 2px solid #00ff88; outline-offset: 2px; }
+      .status-bar { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted); }
       @media (max-width: 768px) {
-        .header { flex-direction: column; align-items: flex-start; }
         .player-wrapper { padding: 10px; }
         .status-bar { flex-direction: column; gap: 8px; text-align: center; }
       }
@@ -64,7 +53,7 @@
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
         <span>HLS: /hls/gopro.m3u8</span>
-        <button id="btn-restart" style="padding: 6px 12px; background: #222; border: 1px solid #444; border-radius: 6px; color: #e0e0e0; cursor: pointer; font-size: 0.8rem;">
+        <button id="btn-restart" class="cmd-btn">
           ▶ Restart Stream
         </button>
         <span id="restart-status" style="font-size: 0.75rem;"></span>
