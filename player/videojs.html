@@ -9,7 +9,7 @@
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; }
-      .header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+      .header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; position: relative; z-index: 10; }
       .header h1 { font-size: 1.4rem; color: #fff; }
       .nav-links { display: flex; gap: 10px; }
       .nav-links a { color: #888; text-decoration: none; padding: 8px 16px; border: 1px solid #333; border-radius: 8px; font-size: 0.85rem; transition: all 0.2s; }
@@ -61,7 +61,13 @@
         <span class="status-dot" id="status-dot"></span>
         <span id="status-text">Verifica stream...</span>
       </div>
-      <div>HLS: /hls/gopro.m3u8</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span>HLS: /hls/gopro.m3u8</span>
+        <button id="btn-restart" style="padding: 6px 12px; background: #222; border: 1px solid #444; border-radius: 6px; color: #e0e0e0; cursor: pointer; font-size: 0.8rem;">
+          ▶ Restart Stream
+        </button>
+        <span id="restart-status" style="font-size: 0.75rem;"></span>
+      </div>
     </div>
 
     <script>
@@ -86,6 +92,38 @@
 
       checkStream();
       setInterval(checkStream, 5000);
+
+      // --- Restart Stream ---
+      var btnRestart = document.getElementById('btn-restart');
+      var restartStatus = document.getElementById('restart-status');
+
+      btnRestart.addEventListener('click', function() {
+        btnRestart.disabled = true;
+        restartStatus.textContent = 'Invio comando...';
+        restartStatus.style.color = '#ffaa00';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/cmd/execute?p1=gpStream&a1=proto_v2&c1=restart', true);
+        xhr.timeout = 5000;
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            restartStatus.textContent = '✅ Comando inviato';
+            restartStatus.style.color = '#00ff88';
+          } else {
+            restartStatus.textContent = '❌ Errore: ' + xhr.status;
+            restartStatus.style.color = '#ff4444';
+          }
+          btnRestart.disabled = false;
+          setTimeout(function() { restartStatus.textContent = ''; }, 3000);
+        };
+        xhr.onerror = xhr.ontimeout = function() {
+          restartStatus.textContent = '❌ Timeout/Errore connessione';
+          restartStatus.style.color = '#ff4444';
+          btnRestart.disabled = false;
+          setTimeout(function() { restartStatus.textContent = ''; }, 3000);
+        };
+        xhr.send();
+      });
     </script>
   </body>
 </html>

@@ -63,9 +63,13 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 - **Comandi sudo**: Chiedere all'utente di eseguire e incollare l'output
 - **Skills**: Non mischiare contenuti tra skill diverse
 
-### TODO - Comandi mancanti nella Dashboard
+### TODO
 
 - [x] Aggiungere comando per avviare streaming UDP: `/execute?p1=gpStream&a1=proto_v2&c1=restart`
+- [ ] **BUG**: Container goprostream va in crash dopo un po' — da investigare
+  - Sintomi: FFmpeg si ferma, logs mostrano attività fino all'ultimo avvio
+  - Workaround: `podman-compose restart goprostream`
+  - Causa probabile: FFmpeg crash o GoPro chiude la connessione UDP
 
 ### Struttura
 
