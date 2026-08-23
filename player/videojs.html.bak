@@ -17,8 +17,7 @@
       .nav-links a.active { color: #00ff88; border-color: #00ff88; }
       .player-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
       .player-container { background: #1a1a1a; border-radius: 12px; border: 1px solid #333; width: 100%; max-width: 1200px; overflow: hidden; aspect-ratio: 16/9; }
-      .video-js { width: 100% !important; height: 100% !important; }
-      .vjs-tech { width: 100% !important; height: 100% !important; }
+      .video-js { width: 100% !important; }
       .status-bar { padding: 12px 20px; border-top: 1px solid #333; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #888; }
       .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; margin-right: 6px; display: inline-block; }
       .status-dot.ok { background: #00ff88; }
@@ -50,7 +49,7 @@
           autoplay
           muted
           preload="auto"
-          data-setup='{}'
+          data-setup='{"aspectRatio": "16:9"}'
         >
           <source src="/hls/gopro.m3u8" type="application/x-mpegURL" />
         </video>

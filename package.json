@@ -1,0 +1,26 @@
+{
+  "name": "goprostream",
+  "version": "1.0.0",
+  "description": "Bridge di streaming video tra **GoPro Hero 4 Black** e **OctoPrint**.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fdellorso/goprostream.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fdellorso/goprostream/issues"
+  },
+  "homepage": "https://github.com/fdellorso/goprostream#readme",
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

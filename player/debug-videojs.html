@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>🔍 Debug Video.js CSS v2</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Courier New', monospace; 
+      background: #0a0a0a; 
+      color: #e0e0e0; 
+      padding: 20px; 
+    }
+    h1 { color: #00ff88; margin-bottom: 20px; }
+    h2 { color: #4da6ff; margin: 15px 0 10px 0; font-size: 1rem; }
+    .section { 
+      margin: 20px 0; 
+      border: 1px solid #444; 
+      padding: 15px; 
+      border-radius: 8px; 
+      background: #111;
+    }
+    .style-block { 
+      background: #1a1a1a; 
+      padding: 10px; 
+      margin: 10px 0; 
+      border-radius: 4px; 
+      white-space: pre-wrap; 
+      font-size: 11px;
+      border-left: 3px solid #444;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .prop { color: #4da6ff; }
+    .val { color: #ffaa00; }
+    .ok { color: #00ff88; }
+    .warn { color: #ffaa00; }
+    .err { color: #ff4444; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { 
+      padding: 8px 12px; 
+      text-align: left; 
+      border-bottom: 1px solid #333; 
+      font-size: 12px;
+    }
+    th { color: #00ff88; }
+    .highlight { background: #1a3a1a; }
+    #status { 
+      padding: 10px; 
+      background: #1a1a1a; 
+      border-radius: 4px; 
+      margin-bottom: 20px;
+    }
+    .iframe-container {
+      margin: 20px 0;
+      border: 1px solid #444;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .iframe-container iframe {
+      width: 100%;
+      height: 500px;
+      border: none;
+    }
+    button {
+      background: #222;
+      border: 1px solid #444;
+      color: #e0e0e0;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover { background: #333; border-color: #00ff88; }
+    .chain { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+    .chain-item { background: #1a1a1a; padding: 10px; border-radius: 4px; border: 1px solid #444; }
+    .chain-arrow { color: #00ff88; font-size: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Debug Video.js CSS v2</h1>
+  
+  <div id="status">⏳ In attesa del caricamento iframe...</div>
+  
+  <button onclick="location.reload()">🔄 Ricarica</button>
+  <button onclick="document.getElementById('frame').src='videojs.html?t='+Date.now()">🔄 Ricarica Player</button>
+  
+  <div class="iframe-container">
+    <iframe id="frame" src="videojs.html"></iframe>
+  </div>
+  
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
+    
+    function getComputed(win, el, props) {
+      const computed = win.getComputedStyle(el);
+      const result = {};
+      props.forEach(p => { result[p] = computed[p]; });
+      return result;
+    }
+    
+    function getRect(el) {
+      const rect = el.getBoundingClientRect();
+      return {
+        width: rect.width,
+        height: rect.height,
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom
+      };
+    }
+    
+    function renderTable(title, data) {
+      let html = '<table><tr><th>Proprietà</th><th>Valore</th></tr>';
+      for (const [prop, val] of Object.entries(data)) {
+        html += `<tr><td class="prop">${prop}</td><td class="val">${val}</td></tr>`;
+      }
+      html += '</table>';
+      return html;
+    }
+    
+    document.getElementById('frame').onload = function() {
+      status.textContent = '✅ iframe caricato - analisi in corso...';
+      status.style.color = '#00ff88';
+      
+      setTimeout(() => {
+        try {
+          const doc = this.contentDocument;
+          const win = this.contentWindow;
+          
+          let html = '';
+          
+          // 1. Catena di elementi
+          const wrapper = doc.querySelector('.player-wrapper');
+          const container = doc.querySelector('.player-container');
+          const player = doc.getElementById('player');
+          const video = player ? player.querySelector('video') : null;
+          const tech = player ? player.querySelector('.vjs-tech') : null;
+          
+          html += '<div class="section">';
+          html += '<h2>🔗 Catena elementi</h2>';
+          html += '<div class="chain">';
+          if (wrapper) html += '<div class="chain-item">.player-wrapper</div><span class="chain-arrow">→</span>';
+          if (container) html += '<div class="chain-item">.player-container</div><span class="chain-arrow">→</span>';
+          if (player) html += '<div class="chain-item">#player (.video-js)</div><span class="chain-arrow">→</span>';
+          if (tech) html += '<div class="chain-item">.vjs-tech (video)</div>';
+          html += '</div></div>';
+          
+          // 2. Style inline su tutti gli elementi
+          html += '<div class="section">';
+          html += '<h2>🎨 Style inline</h2>';
+          const allElements = [wrapper, container, player, tech].filter(Boolean);
+          html += '<table><tr><th>Elemento</th><th>Style inline</th></tr>';
+          allElements.forEach(el => {
+            const style = el.getAttribute('style') || '(nessuno)';
+            const tag = el.tagName + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ')[0] : '');
+            html += `<tr><td>${tag}</td><td style="font-size:10px;">${style}</td></tr>`;
+          });
+          html += '</table></div>';
+          
+          // 3. Stili computati per ogni elemento
+          const props = ['width', 'height', 'padding', 'padding-top', 'margin', 'position', 'display', 'aspect-ratio', 'overflow'];
+          
+          if (wrapper) {
+            html += '<div class="section">';
+            html += '<h2>📦 .player-wrapper</h2>';
+            const data = getComputed(win, wrapper, props);
+            html += renderTable('Stili computati', data);
+            const rect = getRect(wrapper);
+            html += '<h3>Dimensioni reali</h3>';
+            html += renderTable('getBoundingClientRect', rect);
+            html += '</div>';
+          }
+          
+          if (container) {
+            html += '<div class="section">';
+            html += '<h2>📦 .player-container</h2>';
+            const data = getComputed(win, container, props);
+            html += renderTable('Stili computati', data);
+            const rect = getRect(container);
+            html += '<h3>Dimensioni reali</h3>';
+            html += renderTable('getBoundingClientRect', rect);
+            html += '</div>';
+          }
+          
+          if (player) {
+            html += '<div class="section">';
+            html += '<h2>🎬 #player (.video-js)</h2>';
+            const data = getComputed(win, player, props);
+            html += renderTable('Stili computati', data);
+            const rect = getRect(player);
+            html += '<h3>Dimensioni reali</h3>';
+            html += renderTable('getBoundingClientRect', rect);
+            html += '<h3>Classi</h3>';
+            html += '<div class="style-block">' + player.className + '</div>';
+            html += '</div>';
+          }
+          
+          if (tech) {
+            html += '<div class="section">';
+            html += '<h2>🎥 .vjs-tech (elemento video)</h2>';
+            const data = getComputed(win, tech, [...props, 'object-fit']);
+            html += renderTable('Stili computati', data);
+            const rect = getRect(tech);
+            html += '<h3>Dimensioni reali</h3>';
+            html += renderTable('getBoundingClientRect', rect);
+            html += '</div>';
+          }
+          
+          // 4. Confronto dimensioni
+          html += '<div class="section">';
+          html += '<h2>📊 Confronto dimensioni</h2>';
+          html += '<table><tr><th>Elemento</th><th>Width</th><th>Height</th><th>Ratio</th></tr>';
+          
+          const items = [
+            { name: '.player-wrapper', el: wrapper },
+            { name: '.player-container', el: container },
+            { name: '#player', el: player },
+            { name: '.vjs-tech', el: tech }
+          ];
+          
+          items.forEach(item => {
+            if (item.el) {
+              const rect = item.el.getBoundingClientRect();
+              const ratio = rect.height > 0 ? (rect.width / rect.height).toFixed(2) : '-';
+              const isWide = rect.width > 300;
+              const isTall = rect.height > 200;
+              const status = isWide && isTall ? '✅' : '⚠️';
+              html += `<tr><td>${item.name}</td><td>${rect.width}px</td><td>${rect.height}px</td><td>${ratio} ${status}</td></tr>`;
+            }
+          });
+          html += '</table></div>';
+          
+          // 5. Tutti gli style nel DOM
+          const styles = doc.querySelectorAll('style');
+          html += '<div class="section">';
+          html += '<h2>📋 Tutti gli &lt;style&gt; (' + styles.length + ')</h2>';
+          styles.forEach((s, i) => {
+            const text = s.textContent.trim();
+            if (text) {
+              let source = 'Sconosciuta';
+              if (text.includes('.vjs-fluid')) source = 'Video.js (vjs-fluid)';
+              else if (text.includes('.video-js')) source = 'Video.js (defaults)';
+              else if (text.includes('.player-container')) source = 'Nostro CSS';
+              
+              html += '<div class="style-block">';
+              html += '<b>Style #' + i + ' - ' + source + '</b>\n';
+              html += text;
+              html += '</div>';
+            }
+          });
+          html += '</div>';
+          
+          output.innerHTML = html;
+          status.textContent = '✅ Analisi completata';
+          
+        } catch (e) {
+          status.textContent = '❌ Errore: ' + e.message;
+          status.style.color = '#ff4444';
+          output.innerHTML = '<div class="section"><h2>Errore</h2><pre>' + e.stack + '</pre></div>';
+        }
+      }, 3000);
+    };
+    
+    if (document.getElementById('frame').contentDocument) {
+      document.getElementById('frame').onload();
+    }
+  </script>
+</body>
+</html>
