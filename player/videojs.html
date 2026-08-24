@@ -7,6 +7,8 @@
     <link href="/css/base.css" rel="stylesheet">
     <link href="/css/video-js.min.css" rel="stylesheet" />
     <script src="/js/video.min.js"></script>
+    <script defer src="/js/alpine.min.js"></script>
+    <style>[x-cloak] { display: none !important; }</style>
     <style>
       body { display: flex; flex-direction: column; }
       .player-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -20,7 +22,7 @@
       }
     </style>
   </head>
-  <body>
+  <body x-data="player()" x-cloak>
     <div class="header">
       <h1>🎥 GoPro Stream — Video.js</h1>
       <nav class="nav-links">
@@ -48,72 +50,66 @@
 
     <div class="status-bar">
       <div>
-        <span class="status-dot" id="status-dot"></span>
-        <span id="status-text">Verifica stream...</span>
+        <span class="status-dot" :class="streamActive ? 'ok' : 'err'"></span>
+        <span x-text="statusText">Verifica stream...</span>
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
         <span>HLS: /hls/gopro.m3u8</span>
-        <button id="btn-restart" class="cmd-btn">
-          ▶ Restart Stream
+        <button class="cmd-btn" :disabled="restartLoading" @click="restartStream()">
+          <span x-show="!restartLoading">▶ Restart Stream</span>
+          <span x-show="restartLoading">⏳ Invio...</span>
         </button>
-        <span id="restart-status" style="font-size: 0.75rem;"></span>
+        <span style="font-size: 0.75rem;" :style="{ color: restartOk ? '#00ff88' : restartErr ? '#ff4444' : '#ffaa00' }"
+              x-text="restartMsg"></span>
       </div>
     </div>
 
     <script>
-      var statusDot = document.getElementById('status-dot');
-      var statusText = document.getElementById('status-text');
-      var hlsUrl = '/hls/gopro.m3u8';
+      function player() {
+        return {
+          streamActive: false,
+          statusText: 'Verifica stream...',
+          restartLoading: false,
+          restartMsg: '',
+          restartOk: false,
+          restartErr: false,
+          hlsUrl: '/hls/gopro.m3u8',
 
-      function checkStream() {
-        var xhr = new XMLHttpRequest();
-        xhr.open('HEAD', hlsUrl + '?t=' + Date.now());
-        xhr.timeout = 3000;
-        xhr.onload = function() {
-          statusDot.className = 'status-dot ok';
-          statusText.textContent = 'Stream attivo';
-        };
-        xhr.onerror = xhr.ontimeout = function() {
-          statusDot.className = 'status-dot err';
-          statusText.textContent = 'Stream non attivo';
-        };
-        xhr.send();
-      }
+          init() {
+            this.checkStream();
+            setInterval(() => this.checkStream(), 5000);
+          },
 
-      checkStream();
-      setInterval(checkStream, 5000);
+          async checkStream() {
+            try {
+              var res = await fetch(this.hlsUrl + '?t=' + Date.now(), { method: 'HEAD' });
+              this.streamActive = res.ok;
+              this.statusText = res.ok ? 'Stream attivo' : 'Stream non attivo';
+            } catch (e) {
+              this.streamActive = false;
+              this.statusText = 'Stream non attivo';
+            }
+          },
 
-      // --- Restart Stream ---
-      var btnRestart = document.getElementById('btn-restart');
-      var restartStatus = document.getElementById('restart-status');
-
-      btnRestart.addEventListener('click', function() {
-        btnRestart.disabled = true;
-        restartStatus.textContent = 'Invio comando...';
-        restartStatus.style.color = '#ffaa00';
-
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/cmd/execute?p1=gpStream&a1=proto_v2&c1=restart', true);
-        xhr.timeout = 5000;
-        xhr.onload = function() {
-          if (xhr.status === 200) {
-            restartStatus.textContent = '✅ Comando inviato';
-            restartStatus.style.color = '#00ff88';
-          } else {
-            restartStatus.textContent = '❌ Errore: ' + xhr.status;
-            restartStatus.style.color = '#ff4444';
+          async restartStream() {
+            this.restartLoading = true;
+            this.restartMsg = 'Invio comando...';
+            this.restartOk = false;
+            this.restartErr = false;
+            try {
+              var res = await fetch('/api/cmd/execute?p1=gpStream&a1=proto_v2&c1=restart');
+              this.restartOk = res.ok;
+              this.restartErr = !res.ok;
+              this.restartMsg = res.ok ? '✅ Comando inviato' : '❌ Errore: ' + res.status;
+            } catch (e) {
+              this.restartErr = true;
+              this.restartMsg = '❌ Timeout/Errore connessione';
+            }
+            this.restartLoading = false;
+            setTimeout(() => { this.restartMsg = ''; this.restartOk = false; this.restartErr = false; }, 3000);
           }
-          btnRestart.disabled = false;
-          setTimeout(function() { restartStatus.textContent = ''; }, 3000);
         };
-        xhr.onerror = xhr.ontimeout = function() {
-          restartStatus.textContent = '❌ Timeout/Errore connessione';
-          restartStatus.style.color = '#ff4444';
-          btnRestart.disabled = false;
-          setTimeout(function() { restartStatus.textContent = ''; }, 3000);
-        };
-        xhr.send();
-      });
+      }
     </script>
   </body>
 </html>

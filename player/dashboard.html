@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GoPro Stream — Dashboard</title>
   <link href="/css/base.css" rel="stylesheet">
+  <script defer src="/js/alpine.min.js"></script>
+  <style>[x-cloak] { display: none !important; }</style>
   <style>
     .tabs { display: flex; gap: 0; background: var(--bg-input); border-bottom: 1px solid var(--border); }
     .tab-btn { padding: 12px 24px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; border-bottom: 2px solid transparent; }
     .tab-btn:hover { color: #ccc; }
     .tab-btn.active { color: #fff; border-bottom-color: var(--accent); }
-    .tab-content { display: none; padding: 20px; }
-    .tab-content.active { display: block; }
+    .tab-content { padding: 20px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
     .grid-wide { grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); }
     .card { background: var(--bg-card); border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
@@ -61,7 +62,7 @@
     .advanced-section .card { border-style: dashed; border-color: #444; }
   </style>
 </head>
-<body>
+<body x-data="dashboard()" x-cloak>
   <div class="header">
     <h1>🎥 GoPro Stream — Dashboard</h1>
     <nav class="nav-links">
@@ -72,157 +73,161 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="stream">Stream</button>
-    <button class="tab-btn" data-tab="status">Status</button>
-    <button class="tab-btn" data-tab="commands">Commands</button>
+    <button class="tab-btn" :class="activeTab === 'stream' && 'active'" @click="activeTab = 'stream'">Stream</button>
+    <button class="tab-btn" :class="activeTab === 'status' && 'active'" @click="activeTab = 'status'">Status</button>
+    <button class="tab-btn" :class="activeTab === 'commands' && 'active'" @click="activeTab = 'commands'">Commands</button>
   </div>
 
   <!-- TAB 1: STREAM -->
-  <div id="tab-stream" class="tab-content active">
+  <div x-show="activeTab === 'stream'" class="tab-content">
     <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
       <div class="card">
         <h2>Stream Status</h2>
         <div class="status-row">
-          <div class="dot" id="dot-hls"></div>
+          <div class="dot" :class="hlsActive ? 'ok' : 'err'"></div>
           <span class="status-label">HLS Endpoint</span>
-          <span class="status-value" id="val-hls">...</span>
+          <span class="status-value" x-text="hlsActive ? 'Attivo' : 'Non attivo'">...</span>
         </div>
         <div class="status-row">
-          <div class="dot" id="dot-rtmp"></div>
+          <div class="dot" :class="rtmpActive ? 'ok' : 'err'"></div>
           <span class="status-label">RTMP Endpoint</span>
-          <span class="status-value" id="val-rtmp">...</span>
+          <span class="status-value" x-text="rtmpActive ? 'Porta 1935' : 'Non attivo'">...</span>
         </div>
         <div class="status-row">
-          <div class="dot" id="dot-gopro"></div>
+          <div class="dot" :class="goproActive ? 'ok' : goproActive === null ? 'off' : 'err'"></div>
           <span class="status-label">GoPro WiFi</span>
-          <span class="status-value" id="val-gopro">...</span>
+          <span class="status-value" x-text="goproActive ? 'Connessa' : goproActive === null ? '...' : 'Non connessa'">...</span>
         </div>
       </div>
 
       <div class="card">
         <h2>Log</h2>
-        <div id="log"></div>
+        <div id="log">
+          <template x-for="(entry, i) in logs" :key="i">
+            <div class="log-entry" :class="entry.cls" x-text="entry.text"></div>
+          </template>
+        </div>
       </div>
 
       <div class="card">
         <h2>Stream Info</h2>
-        <div class="url-box" id="hls-url">...</div>
-        <div class="url-box" id="rtmp-url">...</div>
+        <div class="url-box" x-text="'HLS: ' + hlsUrl">...</div>
+        <div class="url-box" x-text="'RTMP: ' + rtmpUrl">...</div>
       </div>
     </div>
   </div>
 
   <!-- TAB 2: STATUS -->
-  <div id="tab-status" class="tab-content">
+  <div x-show="activeTab === 'status'" class="tab-content">
     <div class="grid grid-wide">
       <div class="card">
         <h2>📷 Camera</h2>
-        <div class="status-row"><span class="status-label">Modello</span><span class="status-value" id="s-30">...</span></div>
-        <div class="status-row"><span class="status-label">Batteria presente</span><span class="status-value" id="s-1">...</span></div>
-        <div class="status-row"><span class="status-label">Batteria (lvl)</span><span class="status-value" id="s-2">...</span></div>
-        <div class="status-row"><span class="status-label">SD Card</span><span class="status-value" id="s-33">...</span></div>
-        <div class="status-row"><span class="status-label">Spazio libero</span><span class="status-value" id="s-54">...</span></div>
-        <div class="status-row"><span class="status-label">Foto rimaste</span><span class="status-value" id="s-34">...</span></div>
-        <div class="status-row"><span class="status-label">Video rimanente</span><span class="status-value" id="s-35">...</span></div>
+        <div class="status-row"><span class="status-label">Modello</span><span class="status-value" x-text="status['30'] || 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Batteria presente</span><span class="status-value" x-text="mapVal(status['1'], BATT_PRESENT)"></span></div>
+        <div class="status-row"><span class="status-label">Batteria (lvl)</span><span class="status-value" x-text="mapVal(status['2'], BATT_LVL)"></span></div>
+        <div class="status-row"><span class="status-label">SD Card</span><span class="status-value" x-text="mapVal(status['33'], SD)"></span></div>
+        <div class="status-row"><span class="status-label">Spazio libero</span><span class="status-value" x-text="status['54'] ? fmtBytes(status['54']) : 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Foto rimaste</span><span class="status-value" x-text="status['34'] || 'N/A'"</span></div>
+        <div class="status-row"><span class="status-label">Video rimanente</span><span class="status-value" x-text="status['35'] ? Math.floor(status['35']/60) + 'min' : 'N/A'"></span></div>
       </div>
 
       <div class="card">
         <h2>🎬 Streaming</h2>
-        <div class="status-row"><span class="status-label">Registrazione</span><span class="status-value" id="s-8">...</span></div>
-        <div class="status-row"><span class="status-label">Streaming</span><span class="status-value" id="s-32">...</span></div>
-        <div class="status-row"><span class="status-label">Modalità</span><span class="status-value" id="s-43m">...</span></div>
-        <div class="status-row"><span class="status-label">Sub-modalità</span><span class="status-value" id="s-44">...</span></div>
-        <div class="status-row"><span class="status-label">Durata video</span><span class="status-value" id="s-13">...</span></div>
-        <div class="status-row"><span class="status-label">Client WiFi</span><span class="status-value" id="s-31">...</span></div>
-        <div class="status-row"><span class="status-label">Foto batch</span><span class="status-value" id="s-36">...</span></div>
-        <div class="status-row"><span class="status-label">Video scattati</span><span class="status-value" id="s-37">...</span></div>
-        <div class="status-row"><span class="status-label">Totale foto</span><span class="status-value" id="s-38">...</span></div>
-        <div class="status-row"><span class="status-label">Totale video</span><span class="status-value" id="s-39">...</span></div>
+        <div class="status-row"><span class="status-label">Registrazione</span><span class="status-value" x-text="mapVal(status['8'], {0:'Fermo',1:'Registrando'})"></span></div>
+        <div class="status-row"><span class="status-label">Streaming</span><span class="status-value" x-text="mapVal(status['32'], {0:'No',1:'Sì'})"></span></div>
+        <div class="status-row"><span class="status-label">Modalità</span><span class="status-value" x-text="mapVal(status['43'], MODES)"></span></div>
+        <div class="status-row"><span class="status-label">Sub-modalità</span><span class="status-value" x-text="status['44'] !== undefined ? status['44'] : 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Durata video</span><span class="status-value" x-text="status['13'] ? status['13'] + 's' : 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Client WiFi</span><span class="status-value" x-text="status['31'] || 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Foto batch</span><span class="status-value" x-text="status['36'] || 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Video scattati</span><span class="status-value" x-text="status['37'] || 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Totale foto</span><span class="status-value" x-text="status['38'] || 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Totale video</span><span class="status-value" x-text="status['39'] || 'N/A'"></span></div>
       </div>
 
       <div class="card">
         <h2>🎬 Video Settings</h2>
-        <div class="status-row"><span class="status-label">Risoluzione</span><span class="status-value" id="set-2">...</span></div>
-        <div class="status-row"><span class="status-label">Frame Rate</span><span class="status-value" id="set-3">...</span></div>
-        <div class="status-row"><span class="status-label">FOV</span><span class="status-value" id="set-4">...</span></div>
-        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" id="set-10">...</span></div>
-        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" id="set-11">...</span></div>
-        <div class="status-row"><span class="status-label">Color</span><span class="status-value" id="set-12">...</span></div>
-        <div class="status-row"><span class="status-label">ISO</span><span class="status-value" id="set-13">...</span></div>
-        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" id="set-14">...</span></div>
-        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" id="set-15">...</span></div>
-        <div class="status-row"><span class="status-label">Low Light</span><span class="status-value" id="set-8">...</span></div>
-        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" id="set-9">...</span></div>
-        <div class="status-row"><span class="status-label">Timelapse Int</span><span class="status-value" id="set-5">...</span></div>
-        <div class="status-row"><span class="status-label">Looping Duration</span><span class="status-value" id="set-6">...</span></div>
-        <div class="status-row"><span class="status-label">Vid+Photo Int</span><span class="status-value" id="set-7">...</span></div>
-        <div class="status-row"><span class="status-label">SubMode Video</span><span class="status-value" id="set-68">...</span></div>
-        <div class="status-row"><span class="status-label">Manual Exposure</span><span class="status-value" id="set-73">...</span></div>
-        <div class="status-row"><span class="status-label">ISO Mode</span><span class="status-value" id="set-74">...</span></div>
+        <div class="status-row"><span class="status-label">Risoluzione</span><span class="status-value" x-text="mapVal(settings['2'], RESOLUTIONS)"></span></div>
+        <div class="status-row"><span class="status-label">Frame Rate</span><span class="status-value" x-text="mapVal(settings['3'], FPS) + ' fps'"></span></div>
+        <div class="status-row"><span class="status-label">FOV</span><span class="status-value" x-text="mapVal(settings['4'], FOVS)"></span></div>
+        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" x-text="mapVal(settings['10'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" x-text="mapVal(settings['11'], WB)"></span></div>
+        <div class="status-row"><span class="status-label">Color</span><span class="status-value" x-text="mapVal(settings['12'], COLORS)"></span></div>
+        <div class="status-row"><span class="status-label">ISO</span><span class="status-value" x-text="mapVal(settings['13'], ISO_V)"></span></div>
+        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" x-text="mapVal(settings['14'], SHARP)"></span></div>
+        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" x-text="mapVal(settings['15'], EV)"></span></div>
+        <div class="status-row"><span class="status-label">Low Light</span><span class="status-value" x-text="mapVal(settings['8'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" x-text="mapVal(settings['9'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">Timelapse Int</span><span class="status-value" x-text="mapVal(settings['5'], TL_INT)"></span></div>
+        <div class="status-row"><span class="status-label">Looping Duration</span><span class="status-value" x-text="mapVal(settings['6'], LOOP_DUR)"></span></div>
+        <div class="status-row"><span class="status-label">Vid+Photo Int</span><span class="status-value" x-text="mapVal(settings['7'], VP_INT)"></span></div>
+        <div class="status-row"><span class="status-label">SubMode Video</span><span class="status-value" x-text="mapVal(settings['68'], SUBMODE_V)"></span></div>
+        <div class="status-row"><span class="status-label">Manual Exposure</span><span class="status-value" x-text="settings['73'] === 0 ? 'Auto' : settings['73'] ? settings['73'] + 'ms' : 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">ISO Mode</span><span class="status-value" x-text="mapVal(settings['74'], ISO_MODE)"></span></div>
       </div>
 
       <div class="card">
         <h2>📷 Photo Settings</h2>
-        <div class="status-row"><span class="status-label">Megapixels</span><span class="status-value" id="set-17">...</span></div>
-        <div class="status-row"><span class="status-label">Continuous</span><span class="status-value" id="set-18">...</span></div>
-        <div class="status-row"><span class="status-label">Shutter</span><span class="status-value" id="set-19">...</span></div>
-        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" id="set-20">...</span></div>
-        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" id="set-21">...</span></div>
-        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" id="set-22">...</span></div>
-        <div class="status-row"><span class="status-label">Color</span><span class="status-value" id="set-23">...</span></div>
-        <div class="status-row"><span class="status-label">ISO</span><span class="status-value" id="set-24">...</span></div>
-        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" id="set-25">...</span></div>
-        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" id="set-26">...</span></div>
-        <div class="status-row"><span class="status-label">SubMode Photo</span><span class="status-value" id="set-69">...</span></div>
-        <div class="status-row"><span class="status-label">ISO Min</span><span class="status-value" id="set-75">...</span></div>
+        <div class="status-row"><span class="status-label">Megapixels</span><span class="status-value" x-text="mapVal(settings['17'], MP)"></span></div>
+        <div class="status-row"><span class="status-label">Continuous</span><span class="status-value" x-text="mapVal(settings['18'], CONT)"></span></div>
+        <div class="status-row"><span class="status-label">Shutter</span><span class="status-value" x-text="mapVal(settings['19'], SHUTTER)"></span></div>
+        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" x-text="mapVal(settings['20'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" x-text="mapVal(settings['21'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" x-text="mapVal(settings['22'], WB)"></span></div>
+        <div class="status-row"><span class="status-label">Color</span><span class="status-value" x-text="mapVal(settings['23'], COLORS)"></span></div>
+        <div class="status-row"><span class="status-label">ISO</span><span class="status-value" x-text="mapVal(settings['24'], ISO_P)"></span></div>
+        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" x-text="mapVal(settings['25'], SHARP)"></span></div>
+        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" x-text="mapVal(settings['26'], EV)"></span></div>
+        <div class="status-row"><span class="status-label">SubMode Photo</span><span class="status-value" x-text="mapVal(settings['69'], SUBMODE_P)"></span></div>
+        <div class="status-row"><span class="status-label">ISO Min</span><span class="status-value" x-text="mapVal(settings['75'], ISO_P)"></span></div>
       </div>
 
       <div class="card">
         <h2>📸 MultiShot Settings</h2>
-        <div class="status-row"><span class="status-label">SubMode</span><span class="status-value" id="set-27">...</span></div>
-        <div class="status-row"><span class="status-label">Megapixels</span><span class="status-value" id="set-28">...</span></div>
-        <div class="status-row"><span class="status-label">Burst Rate</span><span class="status-value" id="set-29">...</span></div>
-        <div class="status-row"><span class="status-label">Timelapse Int</span><span class="status-value" id="set-30">...</span></div>
-        <div class="status-row"><span class="status-label">NightLapse Shutter</span><span class="status-value" id="set-31">...</span></div>
-        <div class="status-row"><span class="status-label">NightLapse Int</span><span class="status-value" id="set-32">...</span></div>
-        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" id="set-33">...</span></div>
-        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" id="set-34">...</span></div>
-        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" id="set-35">...</span></div>
-        <div class="status-row"><span class="status-label">Color</span><span class="status-value" id="set-36">...</span></div>
-        <div class="status-row"><span class="status-label">ISO Limit</span><span class="status-value" id="set-37">...</span></div>
-        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" id="set-38">...</span></div>
-        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" id="set-39">...</span></div>
-        <div class="status-row"><span class="status-label">SubMode MS</span><span class="status-value" id="set-70">...</span></div>
-        <div class="status-row"><span class="status-label">ISO Min</span><span class="status-value" id="set-76">...</span></div>
+        <div class="status-row"><span class="status-label">SubMode</span><span class="status-value" x-text="mapVal(settings['27'], SUBMODE_M)"></span></div>
+        <div class="status-row"><span class="status-label">Megapixels</span><span class="status-value" x-text="mapVal(settings['28'], MP)"></span></div>
+        <div class="status-row"><span class="status-label">Burst Rate</span><span class="status-value" x-text="mapVal(settings['29'], BURST)"></span></div>
+        <div class="status-row"><span class="status-label">Timelapse Int</span><span class="status-value" x-text="mapVal(settings['30'], TL_INT)"></span></div>
+        <div class="status-row"><span class="status-label">NightLapse Shutter</span><span class="status-value" x-text="mapVal(settings['31'], SHUTTER)"></span></div>
+        <div class="status-row"><span class="status-label">NightLapse Int</span><span class="status-value" x-text="settings['32'] !== undefined ? (settings['32'] === 0 ? 'Continuous' : settings['32'] + 's') : 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Spot Meter</span><span class="status-value" x-text="mapVal(settings['33'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">Protune</span><span class="status-value" x-text="mapVal(settings['34'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">White Balance</span><span class="status-value" x-text="mapVal(settings['35'], WB)"></span></div>
+        <div class="status-row"><span class="status-label">Color</span><span class="status-value" x-text="mapVal(settings['36'], COLORS)"></span></div>
+        <div class="status-row"><span class="status-label">ISO Limit</span><span class="status-value" x-text="mapVal(settings['37'], ISO_P)"></span></div>
+        <div class="status-row"><span class="status-label">Sharpness</span><span class="status-value" x-text="mapVal(settings['38'], SHARP)"></span></div>
+        <div class="status-row"><span class="status-label">EV Comp</span><span class="status-value" x-text="mapVal(settings['39'], EV)"></span></div>
+        <div class="status-row"><span class="status-label">SubMode MS</span><span class="status-value" x-text="mapVal(settings['70'], SUBMODE_M)"></span></div>
+        <div class="status-row"><span class="status-label">ISO Min</span><span class="status-value" x-text="mapVal(settings['76'], ISO_P)"></span></div>
       </div>
 
       <div class="card">
         <h2>⚙️ Sistema</h2>
-        <div class="status-row"><span class="status-label">LCD Brightness</span><span class="status-value" id="set-49">...</span></div>
-        <div class="status-row"><span class="status-label">LCD Lock</span><span class="status-value" id="set-50">...</span></div>
-        <div class="status-row"><span class="status-label">LCD Timeout</span><span class="status-value" id="set-51">...</span></div>
-        <div class="status-row"><span class="status-label">Orientation</span><span class="status-value" id="set-52">...</span></div>
-        <div class="status-row"><span class="status-label">Boot Mode</span><span class="status-value" id="set-53">...</span></div>
-        <div class="status-row"><span class="status-label">Quick Capture</span><span class="status-value" id="set-54">...</span></div>
-        <div class="status-row"><span class="status-label">LED</span><span class="status-value" id="set-55">...</span></div>
-        <div class="status-row"><span class="status-label">Beep</span><span class="status-value" id="set-56">...</span></div>
-        <div class="status-row"><span class="status-label">Video Format</span><span class="status-value" id="set-57">...</span></div>
-        <div class="status-row"><span class="status-label">OSD</span><span class="status-value" id="set-58">...</span></div>
-        <div class="status-row"><span class="status-label">Auto Power Off</span><span class="status-value" id="set-59">...</span></div>
-        <div class="status-row"><span class="status-label">LCD Display</span><span class="status-value" id="set-72">...</span></div>
+        <div class="status-row"><span class="status-label">LCD Brightness</span><span class="status-value" x-text="mapVal(settings['49'], LCD_BR)"></span></div>
+        <div class="status-row"><span class="status-label">LCD Lock</span><span class="status-value" x-text="mapVal(settings['50'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">LCD Timeout</span><span class="status-value" x-text="mapVal(settings['51'], LCD_TO)"></span></div>
+        <div class="status-row"><span class="status-label">Orientation</span><span class="status-value" x-text="mapVal(settings['52'], ORIENT)"></span></div>
+        <div class="status-row"><span class="status-label">Boot Mode</span><span class="status-value" x-text="mapVal(settings['53'], MODES)"></span></div>
+        <div class="status-row"><span class="status-label">Quick Capture</span><span class="status-value" x-text="mapVal(settings['54'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">LED</span><span class="status-value" x-text="mapVal(settings['55'], LED)"></span></div>
+        <div class="status-row"><span class="status-label">Beep</span><span class="status-value" x-text="mapVal(settings['56'], BEEP)"></span></div>
+        <div class="status-row"><span class="status-label">Video Format</span><span class="status-value" x-text="mapVal(settings['57'], VID_FMT)"></span></div>
+        <div class="status-row"><span class="status-label">OSD</span><span class="status-value" x-text="mapVal(settings['58'], ONOFF)"></span></div>
+        <div class="status-row"><span class="status-label">Auto Power Off</span><span class="status-value" x-text="mapVal(settings['59'], APO)"></span></div>
+        <div class="status-row"><span class="status-label">LCD Display</span><span class="status-value" x-text="mapVal(settings['72'], ONOFF)"></span></div>
       </div>
 
       <div class="card">
         <h2>📶 WiFi / Streaming</h2>
-        <div class="status-row"><span class="status-label">WiFi Mode</span><span class="status-value" id="set-63">...</span></div>
-        <div class="status-row"><span class="status-label">Stream Bitrate</span><span class="status-value" id="set-62">...</span></div>
-        <div class="status-row"><span class="status-label">Stream Window</span><span class="status-value" id="set-64">...</span></div>
+        <div class="status-row"><span class="status-label">WiFi Mode</span><span class="status-value" x-text="mapVal(settings['63'], WIFI)"></span></div>
+        <div class="status-row"><span class="status-label">Stream Bitrate</span><span class="status-value" x-text="settings['62'] ? (settings['62']/1000) + ' kbps' : 'N/A'"></span></div>
+        <div class="status-row"><span class="status-label">Stream Window</span><span class="status-value" x-text="mapVal(settings['64'], {0:'Default',1:'240p',4:'480p',7:'720p',8:'720p 3:4',9:'720p 1:2'})"></span></div>
       </div>
     </div>
   </div>
 
   <!-- TAB 3: COMMANDS -->
-  <div id="tab-commands" class="tab-content">
+  <div x-show="activeTab === 'commands'" class="tab-content">
     <div class="grid grid-wide">
       <div class="card">
         <h2>🎬 Controlli Base</h2>
@@ -230,8 +235,8 @@
           <div class="cmd-title">Shutter</div>
           <div class="cmd-desc">Avvia/ferma registrazione o scatto</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/shutter?p=1')">▶ Start</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/shutter?p=0')">⏹ Stop</button>
+            <button class="cmd-btn" @click="goproCmd('/command/shutter?p=1')">▶ Start</button>
+            <button class="cmd-btn" @click="goproCmd('/command/shutter?p=0')">⏹ Stop</button>
           </div>
           <div class="cmd-result" id="res-shutter"></div>
         </div>
@@ -240,9 +245,9 @@
           <div class="cmd-title">Modalità</div>
           <div class="cmd-desc">Cambia modalità camera</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="mode" data-value="0" onclick="goproCmd('/command/mode?p=0')">🎥 Video</button>
-            <button class="cmd-btn" data-group="mode" data-value="1" onclick="goproCmd('/command/mode?p=1')">📷 Photo</button>
-            <button class="cmd-btn" data-group="mode" data-value="2" onclick="goproCmd('/command/mode?p=2')">📸 MultiShot</button>
+            <button class="cmd-btn" :class="isActive('mode', '0') && 'active'" data-group="mode" data-value="0" @click="goproCmd('/command/mode?p=0')">🎥 Video</button>
+            <button class="cmd-btn" :class="isActive('mode', '1') && 'active'" data-group="mode" data-value="1" @click="goproCmd('/command/mode?p=1')">📷 Photo</button>
+            <button class="cmd-btn" :class="isActive('mode', '2') && 'active'" data-group="mode" data-value="2" @click="goproCmd('/command/mode?p=2')">📸 MultiShot</button>
           </div>
           <div class="cmd-result" id="res-mode"></div>
         </div>
@@ -252,22 +257,22 @@
           <div class="cmd-desc">Seleziona sottomodalità specifica</div>
           <div class="cmd-desc">Video:</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=0')">Video</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=1')">TimeLapse Video</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=2')">Video+Photo</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=0&sub_mode=3')">Looping</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=0&sub_mode=0')">Video</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=0&sub_mode=1')">TimeLapse Video</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=0&sub_mode=2')">Video+Photo</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=0&sub_mode=3')">Looping</button>
           </div>
           <div class="cmd-desc">Photo:</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=1&sub_mode=0')">Single</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=1&sub_mode=1')">Continuous</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=1&sub_mode=2')">Night</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=1&sub_mode=0')">Single</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=1&sub_mode=1')">Continuous</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=1&sub_mode=2')">Night</button>
           </div>
           <div class="cmd-desc">MultiShot:</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=2&sub_mode=0')">Burst</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=2&sub_mode=1')">Timelapse</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/sub_mode?mode=2&sub_mode=2')">NightLapse</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=2&sub_mode=0')">Burst</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=2&sub_mode=1')">Timelapse</button>
+            <button class="cmd-btn" @click="goproCmd('/command/sub_mode?mode=2&sub_mode=2')">NightLapse</button>
           </div>
           <div class="cmd-result" id="res-submode"></div>
         </div>
@@ -278,18 +283,18 @@
         <div class="cmd-block">
           <div class="cmd-title">Risoluzione</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="resolution" data-value="1" onclick="goproCmd('/setting/2/1')">4K</button>
-            <button class="cmd-btn" data-group="resolution" data-value="2" onclick="goproCmd('/setting/2/2')">4K SuperView</button>
-            <button class="cmd-btn" data-group="resolution" data-value="4" onclick="goproCmd('/setting/2/4')">2.7K</button>
-            <button class="cmd-btn" data-group="resolution" data-value="5" onclick="goproCmd('/setting/2/5')">2.7K SuperView</button>
-            <button class="cmd-btn" data-group="resolution" data-value="6" onclick="goproCmd('/setting/2/6')">2.7K 4:3</button>
-            <button class="cmd-btn" data-group="resolution" data-value="7" onclick="goproCmd('/setting/2/7')">1440p</button>
-            <button class="cmd-btn" data-group="resolution" data-value="8" onclick="goproCmd('/setting/2/8')">1080p SuperView</button>
-            <button class="cmd-btn" data-group="resolution" data-value="9" onclick="goproCmd('/setting/2/9')">1080p</button>
-            <button class="cmd-btn" data-group="resolution" data-value="10" onclick="goproCmd('/setting/2/10')">960p</button>
-            <button class="cmd-btn" data-group="resolution" data-value="11" onclick="goproCmd('/setting/2/11')">720p SuperView</button>
-            <button class="cmd-btn" data-group="resolution" data-value="12" onclick="goproCmd('/setting/2/12')">720p</button>
-            <button class="cmd-btn" data-group="resolution" data-value="13" onclick="goproCmd('/setting/2/13')">WVGA</button>
+            <button class="cmd-btn" :class="isActive('resolution', '1') && 'active'" data-group="resolution" data-value="1" @click="goproCmd('/setting/2/1')">4K</button>
+            <button class="cmd-btn" :class="isActive('resolution', '2') && 'active'" data-group="resolution" data-value="2" @click="goproCmd('/setting/2/2')">4K SuperView</button>
+            <button class="cmd-btn" :class="isActive('resolution', '4') && 'active'" data-group="resolution" data-value="4" @click="goproCmd('/setting/2/4')">2.7K</button>
+            <button class="cmd-btn" :class="isActive('resolution', '5') && 'active'" data-group="resolution" data-value="5" @click="goproCmd('/setting/2/5')">2.7K SuperView</button>
+            <button class="cmd-btn" :class="isActive('resolution', '6') && 'active'" data-group="resolution" data-value="6" @click="goproCmd('/setting/2/6')">2.7K 4:3</button>
+            <button class="cmd-btn" :class="isActive('resolution', '7') && 'active'" data-group="resolution" data-value="7" @click="goproCmd('/setting/2/7')">1440p</button>
+            <button class="cmd-btn" :class="isActive('resolution', '8') && 'active'" data-group="resolution" data-value="8" @click="goproCmd('/setting/2/8')">1080p SuperView</button>
+            <button class="cmd-btn" :class="isActive('resolution', '9') && 'active'" data-group="resolution" data-value="9" @click="goproCmd('/setting/2/9')">1080p</button>
+            <button class="cmd-btn" :class="isActive('resolution', '10') && 'active'" data-group="resolution" data-value="10" @click="goproCmd('/setting/2/10')">960p</button>
+            <button class="cmd-btn" :class="isActive('resolution', '11') && 'active'" data-group="resolution" data-value="11" @click="goproCmd('/setting/2/11')">720p SuperView</button>
+            <button class="cmd-btn" :class="isActive('resolution', '12') && 'active'" data-group="resolution" data-value="12" @click="goproCmd('/setting/2/12')">720p</button>
+            <button class="cmd-btn" :class="isActive('resolution', '13') && 'active'" data-group="resolution" data-value="13" @click="goproCmd('/setting/2/13')">WVGA</button>
           </div>
           <div class="cmd-result" id="res-res"></div>
         </div>
@@ -297,15 +302,15 @@
         <div class="cmd-block">
           <div class="cmd-title">Frame Rate</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="fps" data-value="0" onclick="goproCmd('/setting/3/0')">240</button>
-            <button class="cmd-btn" data-group="fps" data-value="1" onclick="goproCmd('/setting/3/1')">120</button>
-            <button class="cmd-btn" data-group="fps" data-value="2" onclick="goproCmd('/setting/3/2')">100</button>
-            <button class="cmd-btn" data-group="fps" data-value="3" onclick="goproCmd('/setting/3/3')">90</button>
-            <button class="cmd-btn" data-group="fps" data-value="5" onclick="goproCmd('/setting/3/5')">60</button>
-            <button class="cmd-btn" data-group="fps" data-value="7" onclick="goproCmd('/setting/3/7')">48</button>
-            <button class="cmd-btn" data-group="fps" data-value="8" onclick="goproCmd('/setting/3/8')">30</button>
-            <button class="cmd-btn" data-group="fps" data-value="10" onclick="goproCmd('/setting/3/10')">24</button>
-            <button class="cmd-btn" data-group="fps" data-value="11" onclick="goproCmd('/setting/3/11')">15</button>
+            <button class="cmd-btn" :class="isActive('fps', '0') && 'active'" data-group="fps" data-value="0" @click="goproCmd('/setting/3/0')">240</button>
+            <button class="cmd-btn" :class="isActive('fps', '1') && 'active'" data-group="fps" data-value="1" @click="goproCmd('/setting/3/1')">120</button>
+            <button class="cmd-btn" :class="isActive('fps', '2') && 'active'" data-group="fps" data-value="2" @click="goproCmd('/setting/3/2')">100</button>
+            <button class="cmd-btn" :class="isActive('fps', '3') && 'active'" data-group="fps" data-value="3" @click="goproCmd('/setting/3/3')">90</button>
+            <button class="cmd-btn" :class="isActive('fps', '5') && 'active'" data-group="fps" data-value="5" @click="goproCmd('/setting/3/5')">60</button>
+            <button class="cmd-btn" :class="isActive('fps', '7') && 'active'" data-group="fps" data-value="7" @click="goproCmd('/setting/3/7')">48</button>
+            <button class="cmd-btn" :class="isActive('fps', '8') && 'active'" data-group="fps" data-value="8" @click="goproCmd('/setting/3/8')">30</button>
+            <button class="cmd-btn" :class="isActive('fps', '10') && 'active'" data-group="fps" data-value="10" @click="goproCmd('/setting/3/10')">24</button>
+            <button class="cmd-btn" :class="isActive('fps', '11') && 'active'" data-group="fps" data-value="11" @click="goproCmd('/setting/3/11')">15</button>
           </div>
           <div class="cmd-result" id="res-fps"></div>
         </div>
@@ -313,10 +318,10 @@
         <div class="cmd-block">
           <div class="cmd-title">FOV (Campo Visivo)</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="fov" data-value="0" onclick="goproCmd('/setting/4/0')">Wide</button>
-            <button class="cmd-btn" data-group="fov" data-value="1" onclick="goproCmd('/setting/4/1')">Medium</button>
-            <button class="cmd-btn" data-group="fov" data-value="2" onclick="goproCmd('/setting/4/2')">Narrow</button>
-            <button class="cmd-btn" data-group="fov" data-value="4" onclick="goproCmd('/setting/4/4')">Linear</button>
+            <button class="cmd-btn" :class="isActive('fov', '0') && 'active'" data-group="fov" data-value="0" @click="goproCmd('/setting/4/0')">Wide</button>
+            <button class="cmd-btn" :class="isActive('fov', '1') && 'active'" data-group="fov" data-value="1" @click="goproCmd('/setting/4/1')">Medium</button>
+            <button class="cmd-btn" :class="isActive('fov', '2') && 'active'" data-group="fov" data-value="2" @click="goproCmd('/setting/4/2')">Narrow</button>
+            <button class="cmd-btn" :class="isActive('fov', '4') && 'active'" data-group="fov" data-value="4" @click="goproCmd('/setting/4/4')">Linear</button>
           </div>
           <div class="cmd-result" id="res-fov"></div>
         </div>
@@ -327,62 +332,62 @@
         <div class="cmd-block">
           <div class="cmd-title">Protune</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="protune" data-value="1" onclick="goproCmd('/setting/10/1')">ON</button>
-            <button class="cmd-btn" data-group="protune" data-value="0" onclick="goproCmd('/setting/10/0')">OFF</button>
+            <button class="cmd-btn" :class="isActive('protune', '1') && 'active'" data-group="protune" data-value="1" @click="goproCmd('/setting/10/1')">ON</button>
+            <button class="cmd-btn" :class="isActive('protune', '0') && 'active'" data-group="protune" data-value="0" @click="goproCmd('/setting/10/0')">OFF</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">White Balance</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="wb" data-value="0" onclick="goproCmd('/setting/11/0')">Auto</button>
-            <button class="cmd-btn" data-group="wb" data-value="1" onclick="goproCmd('/setting/11/1')">3000K</button>
-            <button class="cmd-btn" data-group="wb" data-value="2" onclick="goproCmd('/setting/11/2')">5500K</button>
-            <button class="cmd-btn" data-group="wb" data-value="3" onclick="goproCmd('/setting/11/3')">6500K</button>
-            <button class="cmd-btn" data-group="wb" data-value="4" onclick="goproCmd('/setting/11/4')">Native</button>
-            <button class="cmd-btn" data-group="wb" data-value="5" onclick="goproCmd('/setting/11/5')">4000K</button>
-            <button class="cmd-btn" data-group="wb" data-value="6" onclick="goproCmd('/setting/11/6')">4800K</button>
-            <button class="cmd-btn" data-group="wb" data-value="7" onclick="goproCmd('/setting/11/7')">6000K</button>
+            <button class="cmd-btn" :class="isActive('wb', '0') && 'active'" data-group="wb" data-value="0" @click="goproCmd('/setting/11/0')">Auto</button>
+            <button class="cmd-btn" :class="isActive('wb', '1') && 'active'" data-group="wb" data-value="1" @click="goproCmd('/setting/11/1')">3000K</button>
+            <button class="cmd-btn" :class="isActive('wb', '2') && 'active'" data-group="wb" data-value="2" @click="goproCmd('/setting/11/2')">5500K</button>
+            <button class="cmd-btn" :class="isActive('wb', '3') && 'active'" data-group="wb" data-value="3" @click="goproCmd('/setting/11/3')">6500K</button>
+            <button class="cmd-btn" :class="isActive('wb', '4') && 'active'" data-group="wb" data-value="4" @click="goproCmd('/setting/11/4')">Native</button>
+            <button class="cmd-btn" :class="isActive('wb', '5') && 'active'" data-group="wb" data-value="5" @click="goproCmd('/setting/11/5')">4000K</button>
+            <button class="cmd-btn" :class="isActive('wb', '6') && 'active'" data-group="wb" data-value="6" @click="goproCmd('/setting/11/6')">4800K</button>
+            <button class="cmd-btn" :class="isActive('wb', '7') && 'active'" data-group="wb" data-value="7" @click="goproCmd('/setting/11/7')">6000K</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Color</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="color" data-value="0" onclick="goproCmd('/setting/12/0')">GoPro Color</button>
-            <button class="cmd-btn" data-group="color" data-value="1" onclick="goproCmd('/setting/12/1')">Flat</button>
+            <button class="cmd-btn" :class="isActive('color', '0') && 'active'" data-group="color" data-value="0" @click="goproCmd('/setting/12/0')">GoPro Color</button>
+            <button class="cmd-btn" :class="isActive('color', '1') && 'active'" data-group="color" data-value="1" @click="goproCmd('/setting/12/1')">Flat</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">ISO Limit</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="iso" data-value="8" onclick="goproCmd('/setting/13/8')">100</button>
-            <button class="cmd-btn" data-group="iso" data-value="7" onclick="goproCmd('/setting/13/7')">200</button>
-            <button class="cmd-btn" data-group="iso" data-value="2" onclick="goproCmd('/setting/13/2')">400</button>
-            <button class="cmd-btn" data-group="iso" data-value="4" onclick="goproCmd('/setting/13/4')">800</button>
-            <button class="cmd-btn" data-group="iso" data-value="1" onclick="goproCmd('/setting/13/1')">1600</button>
-            <button class="cmd-btn" data-group="iso" data-value="3" onclick="goproCmd('/setting/13/3')">3200</button>
-            <button class="cmd-btn" data-group="iso" data-value="0" onclick="goproCmd('/setting/13/0')">6400</button>
+            <button class="cmd-btn" :class="isActive('iso', '8') && 'active'" data-group="iso" data-value="8" @click="goproCmd('/setting/13/8')">100</button>
+            <button class="cmd-btn" :class="isActive('iso', '7') && 'active'" data-group="iso" data-value="7" @click="goproCmd('/setting/13/7')">200</button>
+            <button class="cmd-btn" :class="isActive('iso', '2') && 'active'" data-group="iso" data-value="2" @click="goproCmd('/setting/13/2')">400</button>
+            <button class="cmd-btn" :class="isActive('iso', '4') && 'active'" data-group="iso" data-value="4" @click="goproCmd('/setting/13/4')">800</button>
+            <button class="cmd-btn" :class="isActive('iso', '1') && 'active'" data-group="iso" data-value="1" @click="goproCmd('/setting/13/1')">1600</button>
+            <button class="cmd-btn" :class="isActive('iso', '3') && 'active'" data-group="iso" data-value="3" @click="goproCmd('/setting/13/3')">3200</button>
+            <button class="cmd-btn" :class="isActive('iso', '0') && 'active'" data-group="iso" data-value="0" @click="goproCmd('/setting/13/0')">6400</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Sharpness</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="sharpness" data-value="0" onclick="goproCmd('/setting/14/0')">High</button>
-            <button class="cmd-btn" data-group="sharpness" data-value="1" onclick="goproCmd('/setting/14/1')">Medium</button>
-            <button class="cmd-btn" data-group="sharpness" data-value="2" onclick="goproCmd('/setting/14/2')">Low</button>
+            <button class="cmd-btn" :class="isActive('sharpness', '0') && 'active'" data-group="sharpness" data-value="0" @click="goproCmd('/setting/14/0')">High</button>
+            <button class="cmd-btn" :class="isActive('sharpness', '1') && 'active'" data-group="sharpness" data-value="1" @click="goproCmd('/setting/14/1')">Medium</button>
+            <button class="cmd-btn" :class="isActive('sharpness', '2') && 'active'" data-group="sharpness" data-value="2" @click="goproCmd('/setting/14/2')">Low</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">EV Compensation</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" data-group="ev" data-value="0" onclick="goproCmd('/setting/15/0')">+2.0</button>
-            <button class="cmd-btn" data-group="ev" data-value="1" onclick="goproCmd('/setting/15/1')">+1.5</button>
-            <button class="cmd-btn" data-group="ev" data-value="2" onclick="goproCmd('/setting/15/2')">+1.0</button>
-            <button class="cmd-btn" data-group="ev" data-value="3" onclick="goproCmd('/setting/15/3')">+0.5</button>
-            <button class="cmd-btn" data-group="ev" data-value="4" onclick="goproCmd('/setting/15/4')">0.0</button>
-            <button class="cmd-btn" data-group="ev" data-value="5" onclick="goproCmd('/setting/15/5')">-0.5</button>
-            <button class="cmd-btn" data-group="ev" data-value="6" onclick="goproCmd('/setting/15/6')">-1.0</button>
-            <button class="cmd-btn" data-group="ev" data-value="7" onclick="goproCmd('/setting/15/7')">-1.5</button>
-            <button class="cmd-btn" data-group="ev" data-value="8" onclick="goproCmd('/setting/15/8')">-2.0</button>
+            <button class="cmd-btn" :class="isActive('ev', '0') && 'active'" data-group="ev" data-value="0" @click="goproCmd('/setting/15/0')">+2.0</button>
+            <button class="cmd-btn" :class="isActive('ev', '1') && 'active'" data-group="ev" data-value="1" @click="goproCmd('/setting/15/1')">+1.5</button>
+            <button class="cmd-btn" :class="isActive('ev', '2') && 'active'" data-group="ev" data-value="2" @click="goproCmd('/setting/15/2')">+1.0</button>
+            <button class="cmd-btn" :class="isActive('ev', '3') && 'active'" data-group="ev" data-value="3" @click="goproCmd('/setting/15/3')">+0.5</button>
+            <button class="cmd-btn" :class="isActive('ev', '4') && 'active'" data-group="ev" data-value="4" @click="goproCmd('/setting/15/4')">0.0</button>
+            <button class="cmd-btn" :class="isActive('ev', '5') && 'active'" data-group="ev" data-value="5" @click="goproCmd('/setting/15/5')">-0.5</button>
+            <button class="cmd-btn" :class="isActive('ev', '6') && 'active'" data-group="ev" data-value="6" @click="goproCmd('/setting/15/6')">-1.0</button>
+            <button class="cmd-btn" :class="isActive('ev', '7') && 'active'" data-group="ev" data-value="7" @click="goproCmd('/setting/15/7')">-1.5</button>
+            <button class="cmd-btn" :class="isActive('ev', '8') && 'active'" data-group="ev" data-value="8" @click="goproCmd('/setting/15/8')">-2.0</button>
           </div>
         </div>
       </div>
@@ -392,30 +397,30 @@
         <div class="cmd-block">
           <div class="cmd-title">Megapixels</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/17/0')">12MP Wide</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/17/1')">7MP Wide</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/17/2')">7MP Medium</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/17/3')">5MP Medium</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/17/0')">12MP Wide</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/17/1')">7MP Wide</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/17/2')">7MP Medium</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/17/3')">5MP Medium</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Continuous Rate</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/18/0')">3 fps</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/18/1')">5 fps</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/18/2')">10 fps</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/18/0')">3 fps</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/18/1')">5 fps</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/18/2')">10 fps</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Shutter</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/19/0')">Auto</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/19/1')">2s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/19/2')">5s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/19/3')">10s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/19/4')">15s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/19/5')">20s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/19/6')">30s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/19/0')">Auto</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/19/1')">2s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/19/2')">5s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/19/3')">10s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/19/4')">15s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/19/5')">20s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/19/6')">30s</button>
           </div>
         </div>
       </div>
@@ -425,35 +430,35 @@
         <div class="cmd-block">
           <div class="cmd-title">SubMode</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/27/0')">Burst</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/27/1')">TimeLapse</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/27/2')">NightLapse</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/27/0')">Burst</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/27/1')">TimeLapse</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/27/2')">NightLapse</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Burst Rate</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/0')">3/1</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/1')">5/1</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/2')">10/1</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/3')">10/2</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/4')">10/3</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/5')">30/1</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/6')">30/2</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/7')">30/3</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/29/8')">30/6</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/0')">3/1</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/1')">5/1</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/2')">10/1</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/3')">10/2</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/4')">10/3</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/5')">30/1</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/6')">30/2</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/7')">30/3</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/29/8')">30/6</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Timelapse Interval</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/30/0')">0.5s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/30/1')">1s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/30/2')">2s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/30/5')">5s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/30/10')">10s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/30/30')">30s</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/30/60')">60s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/30/0')">0.5s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/30/1')">1s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/30/2')">2s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/30/5')">5s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/30/10')">10s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/30/30')">30s</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/30/60')">60s</button>
           </div>
         </div>
       </div>
@@ -464,73 +469,73 @@
           <div class="cmd-title">Locate (LED)</div>
           <div class="cmd-desc">Fa lampeggiare le LED della GoPro</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/system/locate?p=1')">🔦 ON</button>
-            <button class="cmd-btn" onclick="goproCmd('/command/system/locate?p=0')">🔦 OFF</button>
+            <button class="cmd-btn" @click="goproCmd('/command/system/locate?p=1')">🔦 ON</button>
+            <button class="cmd-btn" @click="goproCmd('/command/system/locate?p=0')">🔦 OFF</button>
           </div>
           <div class="cmd-result" id="res-locate"></div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Power</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/system/sleep')">⏻ Power Off</button>
+            <button class="cmd-btn" @click="goproCmd('/command/system/sleep')">⏻ Power Off</button>
           </div>
           <div class="cmd-result" id="res-power"></div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">LCD Brightness</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/49/0')">High</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/49/1')">Medium</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/49/2')">Low</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/49/0')">High</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/49/1')">Medium</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/49/2')">Low</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">LED Status</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/55/0')">OFF</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/55/1')">2 LEDs</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/55/2')">4 LEDs</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/55/0')">OFF</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/55/1')">2 LEDs</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/55/2')">4 LEDs</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Beep Volume</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/56/0')">100%</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/56/1')">70%</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/56/2')">Mute</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/56/0')">100%</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/56/1')">70%</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/56/2')">Mute</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Video Format</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/57/0')">NTSC</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/57/1')">PAL</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/57/0')">NTSC</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/57/1')">PAL</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Auto Power Off</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/59/0')">Never</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/59/1')">1 min</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/59/2')">2 min</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/59/3')">3 min</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/59/4')">5 min</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/59/0')">Never</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/59/1')">1 min</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/59/2')">2 min</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/59/3')">3 min</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/59/4')">5 min</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Boot Mode</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/53/0')">Video</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/53/1')">Photo</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/53/2')">MultiShot</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/53/0')">Video</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/53/1')">Photo</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/53/2')">MultiShot</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Orientation</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/52/0')">Auto</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/52/1')">Up</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/52/2')">Down</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/52/0')">Auto</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/52/1')">Up</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/52/2')">Down</button>
           </div>
         </div>
       </div>
@@ -540,24 +545,24 @@
         <div class="cmd-block">
           <div class="cmd-title">WiFi AP Mode</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/63/0')">OFF</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/63/1')">App</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/63/2')">GoPro RC</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/63/4')">Smart Remote</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/63/0')">OFF</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/63/1')">App</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/63/2')">GoPro RC</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/63/4')">Smart Remote</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Imposta Nome WiFi</div>
           <div class="cmd-input">
-            <input type="text" id="wifi-ssid" placeholder="Nome WiFi">
-            <button class="cmd-btn" onclick="goproCmd('/command/wireless/ap/ssid?ssid=' + document.getElementById('wifi-ssid').value)">Imposta</button>
+            <input type="text" x-model="wifiSsid" placeholder="Nome WiFi">
+            <button class="cmd-btn" @click="goproCmd('/command/wireless/ap/ssid?ssid=' + wifiSsid)">Imposta</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Imposta Password WiFi</div>
           <div class="cmd-input">
-            <input type="text" id="wifi-pass" placeholder="Password">
-            <button class="cmd-btn" onclick="goproCmd('/command/wireless/ap/ssid?ssid=' + document.getElementById('wifi-ssid').value + '&pw=' + document.getElementById('wifi-pass').value)">Imposta</button>
+            <input type="text" x-model="wifiPass" placeholder="Password">
+            <button class="cmd-btn" @click="goproCmd('/command/wireless/ap/ssid?ssid=' + wifiSsid + '&pw=' + wifiPass)">Imposta</button>
           </div>
         </div>
       </div>
@@ -567,20 +572,20 @@
         <div class="cmd-block">
           <div class="cmd-title">Elimina File</div>
           <div class="cmd-input">
-            <input type="text" id="del-path" placeholder="/100GOPRO/G001.JPG">
-            <button class="cmd-btn" onclick="goproCmd('/command/storage/delete?p=' + document.getElementById('del-path').value)">Elimina</button>
+            <input type="text" x-model="delPath" placeholder="/100GOPRO/G001.JPG">
+            <button class="cmd-btn" @click="goproCmd('/command/storage/delete?p=' + delPath)">Elimina</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Elimina Ultimo</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/command/storage/delete/last')">Elimina ultimo media</button>
+            <button class="cmd-btn" @click="goproCmd('/command/storage/delete/last')">Elimina ultimo media</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">⚠️ Formatta SD (cancella tutto!)</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" style="border-color:#ff4444;color:#ff4444" onclick="if(confirm('Sei sicuro? CANCELLA TUTTO!'))goproCmd('/command/storage/delete/all')">⚠️ Formatta SD</button>
+            <button class="cmd-btn" style="border-color:#ff4444;color:#ff4444" @click="if(confirm('Sei sicuro? CANCELLA TUTTO!')) goproCmd('/command/storage/delete/all')">⚠️ Formatta SD</button>
           </div>
         </div>
       </div>
@@ -591,24 +596,24 @@
           <div class="cmd-title">Avvia Streaming UDP</div>
           <div class="cmd-desc">Avvia il flusso video UDP sulla porta 8554</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/execute?p1=gpStream&a1=proto_v2&c1=restart')">▶ Avvia Stream</button>
+            <button class="cmd-btn" @click="goproCmd('/execute?p1=gpStream&a1=proto_v2&c1=restart')">▶ Avvia Stream</button>
           </div>
           <div class="cmd-result" id="res-stream"></div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Stream Bitrate</div>
           <div class="cmd-input">
-            <input type="number" id="stream-bitrate" placeholder="250000" value="250000">
-            <button class="cmd-btn" onclick="goproCmd('/setting/62/' + document.getElementById('stream-bitrate').value)">Imposta</button>
+            <input type="number" x-model="streamBitrate" placeholder="250000">
+            <button class="cmd-btn" @click="goproCmd('/setting/62/' + streamBitrate)">Imposta</button>
           </div>
         </div>
         <div class="cmd-block">
           <div class="cmd-title">Stream Window Size</div>
           <div class="cmd-btns">
-            <button class="cmd-btn" onclick="goproCmd('/setting/64/0')">Default</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/64/1')">240p</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/64/4')">480p</button>
-            <button class="cmd-btn" onclick="goproCmd('/setting/64/7')">720p</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/64/0')">Default</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/64/1')">240p</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/64/4')">480p</button>
+            <button class="cmd-btn" @click="goproCmd('/setting/64/7')">720p</button>
           </div>
         </div>
       </div>
@@ -619,23 +624,23 @@
           <div class="cmd-title">Invio libero</div>
           <div class="cmd-desc">Inserisci il percorso API (es. /command/shutter?p=1)</div>
           <div class="cmd-input">
-            <input type="text" id="raw-cmd" placeholder="/command/shutter?p=1">
-            <button class="cmd-btn" onclick="goproCmd(document.getElementById('raw-cmd').value)">Invia</button>
+            <input type="text" x-model="rawCmd" placeholder="/command/shutter?p=1">
+            <button class="cmd-btn" @click="goproCmd(rawCmd)">Invia</button>
           </div>
-          <div class="cmd-result" id="res-raw"></div>
+          <div class="cmd-result" :class="cmdOk ? 'ok' : 'err'" x-show="cmdResult" x-text="cmdResult"></div>
         </div>
       </div>
     </div>
 
     <!-- SEPARATORE: Bottone Avanzato -->
-    <div class="advanced-toggle" id="advanced-toggle" onclick="toggleAdvanced()">
+    <div class="advanced-toggle" :class="showAdvanced && 'active'" @click="showAdvanced = !showAdvanced">
       <span class="icon">⚙️</span>
       <span class="label">Impostazioni Avanzate</span>
       <span class="arrow">▼</span>
     </div>
 
     <!-- GRID 2: SEZIONI AVANZATE -->
-    <div class="grid grid-wide advanced-section" id="advanced-section">
+    <div class="grid grid-wide advanced-section" :class="showAdvanced && 'visible'">
 
       <!-- VIDEO AVANZATO -->
       <div class="card">
@@ -643,27 +648,27 @@
           <div class="cmd-block">
             <div class="cmd-title">Looping Duration</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/6/0')">Max</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/6/1')">5 min</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/6/2')">20 min</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/6/3')">60 min</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/6/4')">120 min</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/6/0')">Max</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/6/1')">5 min</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/6/2')">20 min</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/6/3')">60 min</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/6/4')">120 min</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Video+Photo Interval</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/7/1')">5s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/7/2')">10s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/7/3')">30s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/7/4')">60s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/7/1')">5s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/7/2')">10s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/7/3')">30s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/7/4')">60s</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">ISO Mode</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/74/0')">Max</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/74/1')">Lock</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/74/0')">Max</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/74/1')">Lock</button>
             </div>
           </div>
         </div>
@@ -674,75 +679,75 @@
           <div class="cmd-block">
             <div class="cmd-title">Protune</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/21/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/21/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/21/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/21/0')">OFF</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Spot Meter</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/20/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/20/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/20/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/20/0')">OFF</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">White Balance</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/0')">Auto</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/1')">3000K</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/2')">5500K</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/3')">6500K</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/4')">Native</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/5')">4000K</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/6')">4800K</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/22/7')">6000K</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/0')">Auto</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/1')">3000K</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/2')">5500K</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/3')">6500K</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/4')">Native</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/5')">4000K</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/6')">4800K</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/22/7')">6000K</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Color</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/23/0')">GoPro Color</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/23/1')">Flat</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/23/0')">GoPro Color</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/23/1')">Flat</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">ISO Limit</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/24/0')">800</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/24/1')">400</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/24/2')">200</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/24/3')">100</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/24/0')">800</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/24/1')">400</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/24/2')">200</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/24/3')">100</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">ISO Min</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/75/0')">800</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/75/1')">400</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/75/2')">200</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/75/3')">100</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/75/0')">800</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/75/1')">400</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/75/2')">200</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/75/3')">100</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Sharpness</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/25/0')">High</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/25/1')">Medium</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/25/2')">Low</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/25/0')">High</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/25/1')">Medium</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/25/2')">Low</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">EV Compensation</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/0')">+2.0</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/1')">+1.5</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/2')">+1.0</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/3')">+0.5</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/4')">0.0</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/5')">-0.5</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/6')">-1.0</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/7')">-1.5</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/26/8')">-2.0</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/0')">+2.0</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/1')">+1.5</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/2')">+1.0</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/3')">+0.5</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/4')">0.0</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/5')">-0.5</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/6')">-1.0</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/7')">-1.5</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/26/8')">-2.0</button>
             </div>
           </div>
         </div>
@@ -753,39 +758,39 @@
           <div class="cmd-block">
             <div class="cmd-title">Risoluzione</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/28/0')">12MP Wide</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/28/1')">7MP Wide</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/28/2')">7MP Medium</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/28/3')">5MP Medium</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/28/0')">12MP Wide</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/28/1')">7MP Wide</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/28/2')">7MP Medium</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/28/3')">5MP Medium</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">NightLapse Exposure</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/31/0')">Auto</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/31/1')">2s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/31/2')">5s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/31/3')">10s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/31/4')">15s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/31/5')">20s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/31/6')">30s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/31/0')">Auto</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/31/1')">2s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/31/2')">5s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/31/3')">10s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/31/4')">15s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/31/5')">20s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/31/6')">30s</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">NightLapse Interval</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/0')">Continuous</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/4')">4s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/5')">5s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/10')">10s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/15')">15s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/20')">20s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/30')">30s</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/60')">1m</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/120')">2m</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/300')">5m</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/1800')">30m</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/32/3600')">60m</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/0')">Continuous</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/4')">4s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/5')">5s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/10')">10s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/15')">15s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/20')">20s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/30')">30s</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/60')">1m</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/120')">2m</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/300')">5m</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/1800')">30m</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/32/3600')">60m</button>
             </div>
           </div>
         </div>
@@ -796,51 +801,51 @@
           <div class="cmd-block">
             <div class="cmd-title">Protune</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/34/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/34/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/34/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/34/0')">OFF</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Spot Meter</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/33/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/33/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/33/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/33/0')">OFF</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">White Balance</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/35/0')">Auto</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/35/4')">Native</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/35/0')">Auto</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/35/4')">Native</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Color</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/36/0')">GoPro Color</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/36/1')">Flat</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/36/0')">GoPro Color</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/36/1')">Flat</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">ISO Limit</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/37/0')">800</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/37/3')">100</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/37/0')">800</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/37/3')">100</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">ISO Min</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/76/0')">800</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/76/3')">100</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/76/0')">800</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/76/3')">100</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Sharpness</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/38/0')">High</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/38/1')">Medium</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/38/2')">Low</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/38/0')">High</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/38/1')">Medium</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/38/2')">Low</button>
             </div>
           </div>
         </div>
@@ -851,38 +856,38 @@
           <div class="cmd-block">
             <div class="cmd-title">LCD Lock</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/50/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/50/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/50/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/50/0')">OFF</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">LCD Timeout</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/51/0')">Never</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/51/1')">1 min</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/51/2')">2 min</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/51/3')">3 min</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/51/0')">Never</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/51/1')">1 min</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/51/2')">2 min</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/51/3')">3 min</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">Quick Capture</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/54/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/54/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/54/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/54/0')">OFF</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">On Screen Display</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/58/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/58/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/58/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/58/0')">OFF</button>
             </div>
           </div>
           <div class="cmd-block">
             <div class="cmd-title">LCD Display</div>
             <div class="cmd-btns">
-              <button class="cmd-btn" onclick="goproCmd('/setting/72/1')">ON</button>
-              <button class="cmd-btn" onclick="goproCmd('/setting/72/0')">OFF</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/72/1')">ON</button>
+              <button class="cmd-btn" @click="goproCmd('/setting/72/0')">OFF</button>
             </div>
           </div>
         </div>
@@ -891,280 +896,146 @@
   </div>
 
   <script>
-    var logEl = document.getElementById('log');
+    // --- LOOKUP MAPS ---
+    const MODES = {0: 'Video', 1: 'Photo', 2: 'MultiShot'};
+    const SUBMODES_V = {0: 'Video', 1: 'TimeLapse', 2: 'Video+Photo', 3: 'Looping'};
+    const SUBMODES_P = {0: 'Single', 1: 'Continuous', 2: 'Night'};
+    const SUBMODES_M = {0: 'Burst', 1: 'TimeLapse', 2: 'NightLapse'};
+    const RESOLUTIONS = {1:'4K',2:'4K SV',4:'2.7K',5:'2.7K SV',6:'2.7K 4:3',7:'1440p',8:'1080p SV',9:'1080p',10:'960p',11:'720p SV',12:'720p',13:'WVGA'};
+    const FPS = {0:'240',1:'120',2:'100',3:'90',4:'80',5:'60',6:'50',7:'48',8:'30',9:'25',10:'24',11:'15',12:'12.5'};
+    const FOVS = {0:'Wide',1:'Medium',2:'Narrow',4:'Linear'};
+    const WB = {0:'Auto',1:'3000K',2:'5500K',3:'6500K',4:'Native',5:'4000K',6:'4800K',7:'6000K'};
+    const COLORS = {0:'GoPro Color',1:'Flat'};
+    const ISO_V = {0:'6400',1:'1600',2:'400',3:'3200',4:'800',7:'200',8:'100'};
+    const ISO_P = {0:'800',1:'400',2:'200',3:'100'};
+    const SHARP = {0:'High',1:'Medium',2:'Low'};
+    const EV = {0:'+2.0',1:'+1.5',2:'+1.0',3:'+0.5',4:'0.0',5:'-0.5',6:'-1.0',7:'-1.5',8:'-2.0'};
+    const ONOFF = {0:'OFF',1:'ON'};
+    const SD = {0:'Inserita',2:'Assente'};
+    const BATT_LVL = {0:'Vuota',1:'Bassa',2:'Media',3:'Piena'};
+    const LCD_BR = {0:'High',1:'Medium',2:'Low'};
+    const LCD_TO = {0:'Never',1:'1min',2:'2min',3:'3min'};
+    const ORIENT = {0:'Auto',1:'Up',2:'Down'};
+    const LED = {0:'OFF',1:'2 LEDs',2:'4 LEDs'};
+    const BEEP = {0:'100%',1:'70%',2:'Mute'};
+    const VID_FMT = {0:'NTSC',1:'PAL'};
+    const APO = {0:'Never',1:'1min',2:'2min',3:'3min',4:'5min'};
+    const WIFI = {0:'OFF',1:'App',2:'GoPro RC',4:'Smart Remote'};
+    const BURST = {0:'3/1',1:'5/1',2:'10/1',3:'10/2',4:'10/3',5:'30/1',6:'30/2',7:'30/3',8:'30/6'};
+    const TL_INT = {0:'0.5s',1:'1s',2:'2s',5:'5s',10:'10s',30:'30s',60:'60s'};
+    const MP = {0:'12MP Wide',1:'7MP Wide',2:'7MP Med',3:'5MP Med'};
+    const CONT = {0:'3fps',1:'5fps',2:'10fps'};
+    const SHUTTER = {0:'Auto',1:'2s',2:'5s',3:'10s',4:'15s',5:'20s',6:'30s'};
+    const LOOP_DUR = {0:'Max',1:'5min',2:'20min',3:'60min',4:'120min'};
+    const VP_INT = {1:'5s',2:'10s',3:'30s',4:'60s'};
+    const SUBMODE_V = {0:'Video',1:'TL Video',2:'Video+Photo',3:'Looping'};
+    const SUBMODE_P = {0:'Single',1:'Continuous',2:'Night'};
+    const SUBMODE_M = {0:'Burst',1:'TimeLapse',2:'NightLapse'};
+    const ISO_MODE = {0:'Max',1:'Lock'};
+    const BATT_PRESENT = {0:'No',1:'Sì'};
 
-    // --- TABS ---
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
-        btn.classList.add('active');
-        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-      });
-    });
-
-    // --- LOG ---
-    function addLog(msg, cls) {
-      var d = document.createElement('div');
-      d.className = 'log-entry ' + (cls || 'log-info');
-      d.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-      logEl.appendChild(d);
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    // --- ADVANCED TOGGLE ---
-    function toggleAdvanced() {
-      var toggle = document.getElementById('advanced-toggle');
-      var section = document.getElementById('advanced-section');
-      toggle.classList.toggle('active');
-      section.classList.toggle('visible');
-    }
-
-    // --- STATUS ---
-    var MODES = {0: 'Video', 1: 'Photo', 2: 'MultiShot'};
-    var SUBMODES_V = {0: 'Video', 1: 'TimeLapse', 2: 'Video+Photo', 3: 'Looping'};
-    var SUBMODES_P = {0: 'Single', 1: 'Continuous', 2: 'Night'};
-    var SUBMODES_M = {0: 'Burst', 1: 'TimeLapse', 2: 'NightLapse'};
-    var RESOLUTIONS = {1:'4K',2:'4K SV',4:'2.7K',5:'2.7K SV',6:'2.7K 4:3',7:'1440p',8:'1080p SV',9:'1080p',10:'960p',11:'720p SV',12:'720p',13:'WVGA'};
-    var FPS = {0:'240',1:'120',2:'100',3:'90',4:'80',5:'60',6:'50',7:'48',8:'30',9:'25',10:'24',11:'15',12:'12.5'};
-    var FOVS = {0:'Wide',1:'Medium',2:'Narrow',4:'Linear'};
-    var WB = {0:'Auto',1:'3000K',2:'5500K',3:'6500K',4:'Native',5:'4000K',6:'4800K',7:'6000K'};
-    var COLORS = {0:'GoPro Color',1:'Flat'};
-    var ISO_V = {0:'6400',1:'1600',2:'400',3:'3200',4:'800',7:'200',8:'100'};
-    var ISO_P = {0:'800',1:'400',2:'200',3:'100'};
-    var SHARP = {0:'High',1:'Medium',2:'Low'};
-    var EV = {0:'+2.0',1:'+1.5',2:'+1.0',3:'+0.5',4:'0.0',5:'-0.5',6:'-1.0',7:'-1.5',8:'-2.0'};
-    var ONOFF = {0:'OFF',1:'ON'};
-    var YESNO = {0:'No',1:'Sì'};
-    var SD = {0:'Inserita',2:'Assente'};
-    var BATT_LVL = {0:'Vuota',1:'Bassa',2:'Media',3:'Piena'};
-    var LCD_BR = {0:'High',1:'Medium',2:'Low'};
-    var LCD_TO = {0:'Never',1:'1min',2:'2min',3:'3min'};
-    var ORIENT = {0:'Auto',1:'Up',2:'Down'};
-    var LED = {0:'OFF',1:'2 LEDs',2:'4 LEDs'};
-    var BEEP = {0:'100%',1:'70%',2:'Mute'};
-    var VID_FMT = {0:'NTSC',1:'PAL'};
-    var APO = {0:'Never',1:'1min',2:'2min',3:'3min',4:'5min'};
-    var WIFI = {0:'OFF',1:'App',2:'GoPro RC',4:'Smart Remote'};
-    var BURST = {0:'3/1',1:'5/1',2:'10/1',3:'10/2',4:'10/3',5:'30/1',6:'30/2',7:'30/3',8:'30/6'};
-    var TL_INT = {0:'0.5s',1:'1s',2:'2s',5:'5s',10:'10s',30:'30s',60:'60s'};
-    var MP = {0:'12MP Wide',1:'7MP Wide',2:'7MP Med',3:'5MP Med'};
-    var CONT = {0:'3fps',1:'5fps',2:'10fps'};
-    var SHUTTER = {0:'Auto',1:'2s',2:'5s',3:'10s',4:'15s',5:'20s',6:'30s'};
-    var LOOP_DUR = {0:'Max',1:'5min',2:'20min',3:'60min',4:'120min'};
-    var VP_INT = {1:'5s',2:'10s',3:'30s',4:'60s'};
-    var SUBMODE_V = {0:'Video',1:'TL Video',2:'Video+Photo',3:'Looping'};
-    var SUBMODE_P = {0:'Single',1:'Continuous',2:'Night'};
-    var SUBMODE_M = {0:'Burst',1:'TimeLapse',2:'NightLapse'};
-    var ISO_MODE = {0:'Max',1:'Lock'};
-    var MANUAL_EXP = {0:'Auto'};
-    var BATT_PRESENT = {0:'No',1:'Sì'};
-
-    function mapVal(val, map) { return map[val] !== undefined ? map[val] : val; }
-    function setText(id, t) { var e = document.getElementById(id); if (e) e.textContent = t; }
-    function setDot(id, ok) { var e = document.getElementById(id); if (e) e.className = 'dot ' + (ok === true ? 'ok' : ok === false ? 'err' : 'off'); }
+    function mapVal(val, map) { return (val === undefined || val === null) ? 'N/A' : (map[val] !== undefined ? map[val] : val); }
     function fmtBytes(b) { return (b / (1024*1024*1024)).toFixed(1) + ' GB'; }
 
-    var statusData = {};
+    // --- ALPINE COMPONENT ---
+    function dashboard() {
+      return {
+        // UI state
+        activeTab: 'stream',
+        showAdvanced: false,
+        logs: [],
 
-    function updateStatus() {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/status?t=' + Date.now());
-      xhr.timeout = 5000;
-      xhr.onload = function() {
-        if (xhr.status === 200) {
+        // Stream status
+        hlsActive: false,
+        rtmpActive: true,
+        goproActive: null,
+        hlsUrl: window.location.origin + '/hls/gopro.m3u8',
+        rtmpUrl: 'rtmp://' + window.location.hostname + ':1935/live/gopro',
+
+        // GoPro status/settings (raw values from API)
+        status: {},
+        settings: {},
+
+        // Command inputs
+        wifiSsid: '',
+        wifiPass: '',
+        delPath: '',
+        streamBitrate: '250000',
+        rawCmd: '',
+        cmdResult: '',
+        cmdOk: false,
+
+        init() {
+          this.checkHLS();
+          this.updateStatus();
+          this.addLog('Dashboard avviata', 'log-info');
+          setInterval(() => this.checkHLS(), 10000);
+          setInterval(() => this.updateStatus(), 10000);
+        },
+
+        async checkHLS() {
           try {
-            var d = JSON.parse(xhr.responseText);
-            var s = d.status;
-            var st = d.settings;
-            statusData = s;
-            setDot('dot-gopro', true);
-            setText('val-gopro', 'Connessa');
-            setText('s-30', s['30'] || 'GP26479007');
-            setText('s-43', (s['43'] !== undefined ? s['43'] + '%' : '-'));
-            setText('s-2', mapVal(s['2'], BATT_LVL));
-            setText('s-33', mapVal(s['33'], SD));
-            setText('s-54', s['54'] ? fmtBytes(s['54']) : '-');
-            setText('s-34', s['34'] || '-');
-            setText('s-35', s['35'] ? Math.floor(s['35']/60) + 'min' : '-');
-            setText('s-8', mapVal(s['8'], {0:'Fermo',1:'Registrando'}));
-            setText('s-32', mapVal(s['32'], {0:'No',1:'Sì'}));
-            setText('s-43m', mapVal(s['43'], MODES));
-            setText('s-44', s['44'] !== undefined ? s['44'] : '-');
-            setText('s-13', s['13'] ? s['13'] + 's' : '-');
-            setText('s-31', s['31'] || '0');
-            setText('s-1', mapVal(s['1'], BATT_PRESENT));
-            setText('s-36', s['36'] || '0');
-            setText('s-37', s['37'] || '0');
-            setText('s-38', s['38'] || '0');
-            setText('s-39', s['39'] || '0');
-            setText('set-2', mapVal(st['2'], RESOLUTIONS));
-            setText('set-3', mapVal(st['3'], FPS) + ' fps');
-            setText('set-4', mapVal(st['4'], FOVS));
-            setText('set-10', mapVal(st['10'], ONOFF));
-            setText('set-11', mapVal(st['11'], WB));
-            setText('set-12', mapVal(st['12'], COLORS));
-            setText('set-13', mapVal(st['13'], ISO_V));
-            setText('set-14', mapVal(st['14'], SHARP));
-            setText('set-15', mapVal(st['15'], EV));
-            setText('set-8', mapVal(st['8'], ONOFF));
-            setText('set-9', mapVal(st['9'], ONOFF));
-            setText('set-5', mapVal(st['5'], TL_INT));
-            setText('set-6', mapVal(st['6'], LOOP_DUR));
-            setText('set-7', mapVal(st['7'], VP_INT));
-            setText('set-68', mapVal(st['68'], SUBMODE_V));
-            setText('set-73', st['73'] === 0 ? 'Auto' : st['73'] ? st['73'] + 'ms' : '-');
-            setText('set-74', mapVal(st['74'], ISO_MODE));
-            setText('set-17', mapVal(st['17'], MP));
-            setText('set-18', mapVal(st['18'], CONT));
-            setText('set-19', mapVal(st['19'], SHUTTER));
-            setText('set-20', mapVal(st['20'], ONOFF));
-            setText('set-21', mapVal(st['21'], ONOFF));
-            setText('set-22', mapVal(st['22'], WB));
-            setText('set-23', mapVal(st['23'], COLORS));
-            setText('set-24', mapVal(st['24'], ISO_P));
-            setText('set-25', mapVal(st['25'], SHARP));
-            setText('set-26', mapVal(st['26'], EV));
-            setText('set-69', mapVal(st['69'], SUBMODE_P));
-            setText('set-75', mapVal(st['75'], ISO_P));
-            setText('set-27', mapVal(st['27'], SUBMODE_M));
-            setText('set-28', mapVal(st['28'], MP));
-            setText('set-29', mapVal(st['29'], BURST));
-            setText('set-30', mapVal(st['30'], TL_INT));
-            setText('set-31', mapVal(st['31'], SHUTTER));
-            setText('set-32', st['32'] !== undefined ? (st['32'] === 0 ? 'Continuous' : st['32'] + 's') : '-');
-            setText('set-33', mapVal(st['33'], ONOFF));
-            setText('set-34', mapVal(st['34'], ONOFF));
-            setText('set-35', mapVal(st['35'], WB));
-            setText('set-37', mapVal(st['37'], ISO_P));
-            setText('set-36', mapVal(st['36'], COLORS));
-            setText('set-38', mapVal(st['38'], SHARP));
-            setText('set-39', mapVal(st['39'], EV));
-            setText('set-70', mapVal(st['70'], SUBMODE_M));
-            setText('set-76', mapVal(st['76'], ISO_P));
-            setText('set-49', mapVal(st['49'], LCD_BR));
-            setText('set-50', mapVal(st['50'], ONOFF));
-            setText('set-51', mapVal(st['51'], LCD_TO));
-            setText('set-52', mapVal(st['52'], ORIENT));
-            setText('set-53', mapVal(st['53'], MODES));
-            setText('set-54', mapVal(st['54'], ONOFF));
-            setText('set-55', mapVal(st['55'], LED));
-            setText('set-56', mapVal(st['56'], BEEP));
-            setText('set-57', mapVal(st['57'], VID_FMT));
-            setText('set-58', mapVal(st['58'], ONOFF));
-            setText('set-59', mapVal(st['59'], APO));
-            setText('set-72', mapVal(st['72'], ONOFF));
-            setText('set-63', mapVal(st['63'], WIFI));
-            setText('set-62', st['62'] ? (st['62']/1000) + ' kbps' : '-');
-            setText('set-64', mapVal(st['64'], {0:'Default',1:'240p',4:'480p',7:'720p',8:'720p 3:4',9:'720p 1:2'}));
-            updateHighlights(st);
-            addLog('Status aggiornato', 'log-ok');
-          } catch(e) {
-            addLog('Errore parsing status', 'log-err');
+            var res = await fetch(this.hlsUrl + '?t=' + Date.now(), { method: 'HEAD' });
+            this.hlsActive = res.ok;
+          } catch (e) {
+            this.hlsActive = false;
           }
+        },
+
+        async updateStatus() {
+          try {
+            var res = await fetch('/api/status?t=' + Date.now());
+            if (!res.ok) throw new Error();
+            var d = await res.json();
+            this.status = d.status || {};
+            this.settings = d.settings || {};
+            this.goproActive = true;
+            this.addLog('Status aggiornato', 'log-ok');
+          } catch (e) {
+            this.goproActive = false;
+            this.addLog('GoPro non raggiungibile', 'log-err');
+          }
+        },
+
+        async goproCmd(path) {
+          this.addLog('CMD: ' + path, 'log-info');
+          try {
+            var res = await fetch('/api/cmd' + path);
+            var r = (await res.text()).trim();
+            var isOk = r === '{}{}' || r === '{}' || (res.ok && !r.includes('error'));
+            this.addLog('RIS: ' + r, isOk ? 'log-ok' : 'log-err');
+            this.cmdResult = r;
+            this.cmdOk = isOk;
+          } catch (e) {
+            this.addLog('ERR: timeout o connessione fallita', 'log-err');
+            this.cmdResult = 'Errore connessione';
+            this.cmdOk = false;
+          }
+        },
+
+        addLog(msg, cls) {
+          this.logs.push({ text: new Date().toLocaleTimeString() + ' ' + msg, cls: cls || 'log-info' });
+          if (this.logs.length > 50) this.logs.shift();
+        },
+
+        // Highlight helpers per data-group buttons
+        isActive(group, value) {
+          var map = {
+            'mode': this.status['43'],
+            'resolution': this.settings['2'],
+            'fps': this.settings['3'],
+            'fov': this.settings['4'],
+            'protune': this.settings['10'],
+            'wb': this.settings['11'],
+            'color': this.settings['12'],
+            'iso': this.settings['13'],
+            'sharpness': this.settings['14'],
+            'ev': this.settings['15']
+          };
+          return String(map[group]) === String(value);
         }
       };
-      xhr.onerror = xhr.ontimeout = function() {
-        setDot('dot-gopro', false);
-        setText('val-gopro', 'Non connessa');
-        addLog('GoPro non raggiungibile', 'log-err');
-      };
-      xhr.send();
     }
-
-    // --- HIGHLIGHTS ---
-    function updateHighlights(settings) {
-      document.querySelectorAll('.cmd-btn').forEach(function(b) { b.classList.remove('active'); });
-      var map = {
-        'mode': statusData['43'],
-        'resolution': settings['2'],
-        'fps': settings['3'],
-        'fov': settings['4'],
-        'protune': settings['10'],
-        'wb': settings['11'],
-        'color': settings['12'],
-        'iso': settings['13'],
-        'sharpness': settings['14'],
-        'ev': settings['15']
-      };
-      for (var group in map) {
-        var val = map[group];
-        if (val !== undefined) {
-          var btn = document.querySelector('[data-group="' + group + '"][data-value="' + val + '"]');
-          if (btn) btn.classList.add('active');
-        }
-      }
-    }
-
-    function checkHLS() {
-      var hlsUrl = window.location.origin + '/hls/gopro.m3u8';
-      var rtmpUrl = 'rtmp://' + window.location.hostname + ':1935/live/gopro';
-      document.getElementById('hls-url').textContent = 'HLS: ' + hlsUrl;
-      document.getElementById('rtmp-url').textContent = 'RTMP: ' + rtmpUrl;
-      var xhr = new XMLHttpRequest();
-      xhr.open('HEAD', hlsUrl + '?t=' + Date.now());
-      xhr.timeout = 3000;
-      xhr.onload = function() { if (xhr.status === 200) { setDot('dot-hls', true); setText('val-hls', 'Attivo'); } else { setDot('dot-hls', false); setText('val-hls', 'Non attivo'); } };
-      xhr.onerror = xhr.ontimeout = function() { setDot('dot-hls', false); setText('val-hls', 'Non attivo'); };
-      xhr.send();
-      setDot('dot-rtmp', true);
-      setText('val-rtmp', 'Porta 1935');
-    }
-
-    // --- COMMANDS ---
-    // ─── Vecchia implementazione (Python API) ─────────────────
-    // function goproCmd(path) {
-    //   var xhr = new XMLHttpRequest();
-    //   xhr.open('POST', '/api/cmd', true);
-    //   xhr.setRequestHeader('Content-Type', 'application/json');
-    //   xhr.timeout = 5000;
-    //   addLog('CMD: ' + path, 'log-info');
-    //   xhr.onload = function() {
-    //     var r = xhr.responseText.trim();
-    //     var isOk = r === '{}{}' || r === '{}' || (xhr.status === 200 && !r.includes('error'));
-    //     addLog('RIS: ' + r, isOk ? 'log-ok' : 'log-err');
-    //     document.querySelectorAll('.cmd-result').forEach(function(el) {
-    //       if (el.id === 'res-raw') {
-    //         el.textContent = r;
-    //         el.className = 'cmd-result ' + (isOk ? 'ok' : 'err');
-    //       }
-    //     });
-    //   };
-    //   xhr.onerror = xhr.ontimeout = function() {
-    //     addLog('ERR: timeout o connessione fallita', 'log-err');
-    //   };
-    //   xhr.send(JSON.stringify({path: path}));
-    // }
-
-    // ─── Nuova implementazione (Nginx proxy diretto) ──────────
-    function goproCmd(path) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/cmd' + path, true);
-      xhr.timeout = 5000;
-      addLog('CMD: ' + path, 'log-info');
-      xhr.onload = function() {
-        var r = xhr.responseText.trim();
-        var isOk = r === '{}{}' || r === '{}' || (xhr.status === 200 && !r.includes('error'));
-        addLog('RIS: ' + r, isOk ? 'log-ok' : 'log-err');
-        document.querySelectorAll('.cmd-result').forEach(function(el) {
-          if (el.id === 'res-raw') {
-            el.textContent = r;
-            el.className = 'cmd-result ' + (isOk ? 'ok' : 'err');
-          }
-        });
-      };
-      xhr.onerror = xhr.ontimeout = function() {
-        addLog('ERR: timeout o connessione fallita', 'log-err');
-      };
-      xhr.send();
-    }
-
-    // --- INIT ---
-    addLog('Dashboard avviata', 'log-info');
-    checkHLS();
-    updateStatus();
-    setInterval(checkHLS, 10000);
-    setInterval(updateStatus, 10000);
   </script>
 </body>
 </html>
