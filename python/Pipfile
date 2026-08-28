@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-goprocam = "*"
+goprocam = "==4.2.0"
 bottle = "*"
 
 [dev-packages]

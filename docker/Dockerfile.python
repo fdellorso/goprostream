@@ -10,9 +10,8 @@ WORKDIR /app
 # Installa dipendenze Python
 COPY python/Pipfile python/Pipfile.lock* ./
 RUN pip install --no-cache-dir pipenv && \
-    (pipenv requirements > requirements.txt 2>/dev/null && \
-     pip install --no-cache-dir -r requirements.txt || \
-     pip install --no-cache-dir goprocam) && \
+    pipenv requirements > requirements.txt && \
+    pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir bottle
 
 # Copia il codice

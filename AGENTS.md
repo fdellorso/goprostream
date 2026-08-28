@@ -80,7 +80,8 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 - [ ] **BUG**: Container goprostream va in crash dopo un po' — da investigare
   - Sintomi: FFmpeg si ferma, logs mostrano attività fino all'ultimo avvio
   - Workaround: `podman-compose restart goprostream`
-  - Causa probabile: FFmpeg crash o GoPro chiude la connessione UDP
+  - Analisi completa: `docs/analisi-crash-container.md` (crash + approfondimento `network_mode: host`)
+  - Causa probabile: supervisore `_check_rtmp_socket()` troppo aggressivo + `network_mode: host` + timing rimosso
 
 ### Struttura
 
@@ -114,7 +115,7 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 │   ├── handoff/
 │   └── plans/
 ├── .pi/                        # Risorse pi-coding-agent
-│   ├── skills/                 # ffmpeg-streaming, podman, python, css-layout, frontend-design
+│   ├── skills/                 # ffmpeg-streaming, nginx-rtmp-module, podman, python, css-layout, frontend-design
 │   ├── extensions/             # project-commands.ts, python-lsp.ts
 │   ├── prompts/                # debug-stream, new-feature, review-stream
 │   └── settings.json
@@ -128,6 +129,8 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 |------|----------|
 | `docs/architecture.md` | Architettura completa del sistema, scelte architetturali, sicurezza |
 | `docs/streaming-lifecycle.md` | Ciclo di vita streaming: stati, sequenza temporale, soluzioni on-demand |
+| `docs/analisi-crash-container.md` | Analisi regressione crash container + approfondimento `network_mode: host` |
+| `docs/fix-crash-container.md` | Piano fix crash container (5 fix, ordine esecuzione, testing) |
 | `docs/setup-octoprint.md` | Setup OctoPrint con Classic Webcam |
 | `docs/handoff/` | Snapshot delle sessioni di sviluppo |
 
