@@ -104,6 +104,9 @@ class KeepAliveTimer:
 
 # ─── Health Checks ───────────────────────────────────────────
 
+# Stati TCP per il check socket RTMP
+KILL_STATES = {"06", "07"}  # CLOSE_WAIT, LAST_ACK — connessione morta
+TRANSIENT_STATES = {"02", "03", "04", "08"}  # SYN_*, FIN_WAIT_* — transitorio
 
 def _get_ffmpeg_socket_inodes(pid: int) -> list[str]:
     """Restituisce gli inode dei socket di un processo."""
@@ -123,32 +126,39 @@ def _get_ffmpeg_socket_inodes(pid: int) -> list[str]:
     return inodes
 
 
-def _check_rtmp_socket(pid: int) -> bool:
-    """Check 1: Verifica se il socket RTMP di FFmpeg è ESTABLISHED.
+def _check_rtmp_socket(pid: int) -> str:
+    """Check 1: Verifica lo stato del socket RTMP di FFmpeg.
 
-    Se nginx droppa il publisher, il socket entra in FIN_WAIT_2.
-    Questo rileva il problema PRIMA che il buffer TCP si riempia.
+    Return:
+        'ESTABLISHED' — connessione attiva
+        'TRANSIENT' — stato transitorio (SYN_SENT, FIN_WAIT_*)
+        'DEAD' — connessione morta (CLOSE_WAIT, LAST_ACK)
+        'UNKNOWN' — stato sconosciuto
+        'NOSOCKET' — nessun socket trovato
     """
     try:
         inodes = _get_ffmpeg_socket_inodes(pid)
         if not inodes:
-            return False
+            return "NOSOCKET"
 
         with open(f"/proc/{pid}/net/tcp") as f:
             for line in f:
                 for inode in inodes:
                     if inode in line:
-                        # Campo stato è il 4 dopo "local_address remote_address"
                         parts = line.split()
                         if len(parts) >= 4:
                             state = parts[3]
                             if state == "01":  # ESTABLISHED
-                                return True
-                            # 06=CLOSE_WAIT, 08=FIN_WAIT_2, 07=LAST_ACK
-                            return False
-        return False
+                                return "ESTABLISHED"
+                            elif state in KILL_STATES:
+                                return "DEAD"
+                            elif state in TRANSIENT_STATES:
+                                return "TRANSIENT"
+                            else:
+                                return "UNKNOWN"
+        return "NOSOCKET"
     except (OSError, IndexError):
-        return False
+        return "NOSOCKET"
 
 
 def _check_gopro_streaming() -> bool:
@@ -362,6 +372,7 @@ def _supervisor(stream: GoProStream) -> None:
     """Loop principale: monitora e auto-recovery."""
     start_time = time.monotonic()
     last_check = 0
+    transient_count = [0]  # lista mutabile per contatore transitori
 
     while not stream._shutdown:
         time.sleep(1)
@@ -373,10 +384,10 @@ def _supervisor(stream: GoProStream) -> None:
             log.info("Supervisore: vivo da %ds (FFmpeg PID: %s)", elapsed, pid)
             last_check = elapsed
 
-        # Health check ogni 30s
-        if elapsed > 0 and elapsed % 30 == 0 and elapsed != last_check:
+        # Health check ogni 10s (più frequente per transitori)
+        if elapsed > 0 and elapsed % 10 == 0 and elapsed != last_check:
             last_check = elapsed
-            _run_health_checks(stream)
+            _run_health_checks(stream, transient_count)
 
         # Check KeepAlive
         if stream._keepalive and not stream._keepalive.is_running:
@@ -395,17 +406,22 @@ def _supervisor(stream: GoProStream) -> None:
                 time.sleep(5)
 
 
-def _run_health_checks(stream: GoProStream) -> None:
-    """Esegue gli health check e agisce di conseguenza."""
+def _run_health_checks(stream: GoProStream, transient_count: list[int]) -> None:
+    """Esegue gli health check e agisce di conseguenza.
+
+    Args:
+        stream: oggetto GoProStream
+        transient_count: lista con un solo intero (contatore transitori, mutabile)
+    """
     results = []
 
     # Check 1: Socket RTMP
     if stream._ffmpeg and stream._ffmpeg.poll() is None:
-        socket_ok = _check_rtmp_socket(stream._ffmpeg.pid)
-        results.append(f"socket={'OK' if socket_ok else 'MORTO'}")
+        socket_status = _check_rtmp_socket(stream._ffmpeg.pid)
+        results.append(f"socket={socket_status}")
 
-        if not socket_ok:
-            log.warning("Supervisore: socket RTMP non ESTABLISHED → kill FFmpeg")
+        if socket_status == "DEAD":
+            log.warning("Supervisore: socket RTMP morto (CLOSE_WAIT/LAST_ACK) → kill FFmpeg")
             stream._kill_ffmpeg()
             time.sleep(2)
             try:
@@ -415,6 +431,30 @@ def _run_health_checks(stream: GoProStream) -> None:
                 log.error("Restart FFmpeg fallito: %s", e)
                 results.append("restart=FALLITO")
             return  # skip altri check, FFmpeg è stato riavviato
+
+        elif socket_status == "TRANSIENT":
+            transient_count[0] += 1
+            if transient_count[0] >= 3:
+                log.warning("Supervisore: socket RTMP in stato transitorio da 30s → kill FFmpeg")
+                stream._kill_ffmpeg()
+                time.sleep(2)
+                try:
+                    stream._start_ffmpeg()
+                    results.append("restart=OK")
+                except RuntimeError as e:
+                    log.error("Restart FFmpeg fallito: %s", e)
+                    results.append("restart=FALLITO")
+                transient_count[0] = 0
+                return
+            else:
+                log.info("Supervisore: socket transitorio (%d/3) → aspetto", transient_count[0])
+
+        elif socket_status == "UNKNOWN":
+            log.warning("Supervisore: socket RTMP stato sconosciuto: %s", socket_status)
+
+        else:
+            # ESTABLISHED o NOSOCKET con processo vivo → reset contatore
+            transient_count[0] = 0
     else:
         results.append("socket=N/A")
 

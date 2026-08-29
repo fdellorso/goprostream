@@ -1,7 +1,7 @@
 # Debug Crash Container goprostream — Report Completo
 
 > Data: 2026-08-23/24 (debug) → 2026-08-29 (fix)
-> Stato: ✅ Fix Fase 1+2 applicati — problema risolto
+> Stato: ✅ Fix Fase 1+2+3 applicati — problema risolto
 
 ---
 
@@ -215,6 +215,7 @@ Supervisor loop (ogni 30s):
 | shell=True | Crea 2 processi (shell + FFmpeg) | Lista argomenti diretti | ✅ 1 processo |
 | wait() mancante dopo SIGKILL | Zombie si accumulano | Aggiunto `self._ffmpeg.wait()` | ✅ Zero zombie |
 | KeepAlive non monitorato | Processo può morire silenziosamente | Check nel supervisore | ✅ Auto-recovery |
+| _check_rtmp_socket() aggressivo | Kill pertransitori (SYN_SENT, FIN_WAIT) | Stati TRANSIENT/DEAD, contatore 30s | ✅ Nessun kill inutile |
 
 ### Metriche post-fix
 
@@ -222,14 +223,14 @@ Supervisor loop (ogni 30s):
 |---------|-----------|----------|
 | Zombie FFmpeg | 6-9 | 0 |
 | Kill supervisore | Ogni 60s | 0 |
-| Socket RTMP | `non ESTABLISHED` | OK |
+| Socket RTMP | `non ESTABLISHED` | ESTABLISHED |
 | Stabilità | Crash periodico | Stabile |
 
 ---
 
 ## 9. TODO residui
 
-- [ ] Fix Fase 3: valutare rimozione `network_mode: host` da goprostream
+- [x] Fix Fase 3: network_mode: host — Non necessario, il sistema è stabile
 - [ ] Capire perché FFmpeg chiude dopo ~50s (opzione FFmpeg o codice sorgente)
 - [ ] Testare su hardware diverso (non OUYA)
 

@@ -10,7 +10,7 @@
 
 | # | Fix | Priorità | Difficoltà | File |
 |---|-----|----------|------------|------|
-| 1 | Supervisore `_check_rtmp_socket()` — fix stati kill | 🔴 Alta | Bassa | `python/goprostream.py` | ✅ **APPLICATO** |
+| 1 | Supervisore `_check_rtmp_socket()` — fix stati kill | 🔴 Alta | Bassa | `python/goprostream.py` | ✅ **APPLICATO**: TRANSIENT/DEAD, contatore 30s |
 | 2 | FFmpeg zombie — rimuovere `shell=True` | 🔴 Alta | Bassa | `python/goprostream.py` | ✅ **APPLICATO** |
 | 3 | FFmpeg zombie — aggiungere `wait()` dopo SIGKILL | 🔴 Alta | Bassa | `python/goprostream.py` | ✅ **APPLICATO** |
 | 4 | Network mode — valutare rimozione da goprostream | 🟠 Media | Alta | `docker/docker-compose.yml` | ⏳ Da valutare |
@@ -333,4 +333,4 @@ Dopo ogni fix, testare su OUYA:
 - [x] Fix 3 applicato (wait dopo SIGKILL)
 - [ ] Fix 4 applicato (network mode) — da valutare
 - [x] Fix 5 applicato (monitor keepalive)
-- [x] Test su OUYA — confermato zero zombie, nessun kill
+- [x] Test su OUYA — confermato zero zombie, nessun kill, socket ESTABLISHED
