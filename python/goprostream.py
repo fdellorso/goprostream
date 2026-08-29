@@ -366,14 +366,20 @@ class GoProStream:
         self._ffmpeg = None
 
     def _restart_stream_gopro(self) -> None:
-        """Invia comando restart stream alla GoPro."""
+        """Riavvia lo streaming UDP sulla GoPro usando goprocam."""
         try:
-            url = f"http://{GOPRO_IP}/gp/gpControl/execute?p1=gpStream&a1=proto_v2&c1=restart"
-            req = urllib.request.Request(url)
-            urllib.request.urlopen(req, timeout=5)
-            log.info("Restart stream GoPro inviato")
+            self._gopro.livestream("start")
+            log.info("Restart stream GoPro inviato (livestream start)")
         except Exception as e:
             log.warning("Errore restart stream GoPro: %s", e)
+            # Fallback: prova con il comando HTTP diretto
+            try:
+                url = f"http://{GOPRO_IP}/gp/gpControl/execute?p1=gpStream&a1=proto_v2&c1=restart"
+                req = urllib.request.Request(url)
+                urllib.request.urlopen(req, timeout=5)
+                log.info("Restart stream GoPro inviato (HTTP fallback)")
+            except Exception as e2:
+                log.warning("Errore restart stream GoPro (fallback): %s", e2)
 
     def start_stream(self) -> None:
         """Avvia lo streaming iniziale."""
