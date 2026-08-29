@@ -423,6 +423,7 @@ def _supervisor(stream: GoProStream) -> None:
     start_time = time.monotonic()
     last_check = 0
     transient_count = [0]  # lista mutabile per contatore transitori
+    nosocket_count = [0]  # lista mutabile per contatore NOSOCKET
     gopro_retry_count = 0
     waiting_for_gopro = False
 
@@ -461,7 +462,7 @@ def _supervisor(stream: GoProStream) -> None:
         # Health check ogni 10s (più frequente per transitori)
         if elapsed > 0 and elapsed % 10 == 0 and elapsed != last_check:
             last_check = elapsed
-            _run_health_checks(stream, transient_count)
+            _run_health_checks(stream, transient_count, nosocket_count)
 
         # Check KeepAlive
         if stream._keepalive and not stream._keepalive.is_running:
@@ -492,12 +493,13 @@ def _supervisor(stream: GoProStream) -> None:
                 time.sleep(5)
 
 
-def _run_health_checks(stream: GoProStream, transient_count: list[int]) -> None:
+def _run_health_checks(stream: GoProStream, transient_count: list[int], nosocket_count: list[int]) -> None:
     """Esegue gli health check e agisce di conseguenza.
 
     Args:
         stream: oggetto GoProStream
         transient_count: lista con un solo intero (contatore transitori, mutabile)
+        nosocket_count: lista con un solo intero (contatore NOSOCKET, mutabile)
     """
     results = []
 
@@ -505,6 +507,19 @@ def _run_health_checks(stream: GoProStream, transient_count: list[int]) -> None:
     if stream._ffmpeg and stream._ffmpeg.poll() is None:
         socket_status = _check_rtmp_socket(stream._ffmpeg.pid)
         results.append(f"socket={socket_status}")
+
+        # Gestione NOSOCKET: se FFmpeg è vivo ma non ha socket RTMP
+        # potrebbe non ricevere dati UDP dalla GoPro
+        if socket_status == "NOSOCKET":
+            nosocket_count[0] += 1
+            if nosocket_count[0] >= 3:  # 30 secondi senza socket
+                log.warning("Supervisore: NOSOCKET da 30s → GoPro potrebbe non streammare, invio restart")
+                stream._restart_stream_gopro()
+                nosocket_count[0] = 0
+                time.sleep(3)  # aspetta che la GoPro riavvii lo streaming
+        else:
+            # Qualsiasi altro stato resetta il contatore
+            nosocket_count[0] = 0
 
         if socket_status == "DEAD":
             log.warning("Supervisore: socket RTMP morto (CLOSE_WAIT/LAST_ACK) → kill FFmpeg")
