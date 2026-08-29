@@ -30,6 +30,11 @@ KEEPALIVE_INTERVAL: int = int(os.getenv("KEEPALIVE_INTERVAL", "8"))
 UDP_PORT: int = int(os.getenv("UDP_PORT", "8554"))
 NGINX_RTMP_PORT: int = 1935
 
+# Auto-recovery GoPro
+MAX_GOPRO_RETRIES: int = int(os.getenv("MAX_GOPRO_RETRIES", "30"))  # 30 × 10s = 5 min
+GOPRO_CHECK_INTERVAL: int = int(os.getenv("GOPRO_CHECK_INTERVAL", "10"))  # secondi
+WARNING_FILE: str = os.getenv("WARNING_FILE", "/mnt/hls/warning.json")
+
 # ─── Logging ──────────────────────────────────────────────────
 
 logging.basicConfig(
@@ -194,6 +199,51 @@ def _check_udp_gopro() -> str:
         return f"FALLITO (errno: {result})"
     except Exception as e:
         return f"ERRORE: {e}"
+
+
+def _check_gopro_online() -> bool:
+    """Verifica se la GoPro è raggiungibile via HTTP."""
+    try:
+        req = urllib.request.Request(f"http://{GOPRO_IP}/gp/gpControl/status")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
+def _check_gopro_streaming_status() -> bool:
+    """Verifica se la GoPro è in modalità streaming (status.17=1)."""
+    try:
+        req = urllib.request.Request(f"http://{GOPRO_IP}/gp/gpControl/status")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read())
+            status = data.get("status", {})
+            return str(status.get("17")) == "1"  # 1 = multistream attivo
+    except Exception:
+        return False
+
+
+def _send_dashboard_warning(message: str) -> None:
+    """Invia warning alla dashboard via file di stato."""
+    data = {
+        "timestamp": time.time(),
+        "message": message,
+        "level": "warning"
+    }
+    try:
+        with open(WARNING_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        log.warning("Impossibile scrivere warning: %s", e)
+
+
+def _clear_dashboard_warning() -> None:
+    """Rimuove il warning dalla dashboard."""
+    try:
+        if os.path.exists(WARNING_FILE):
+            os.remove(WARNING_FILE)
+    except Exception:
+        pass
 
 
 def _check_gopro_status() -> str:
@@ -373,10 +423,34 @@ def _supervisor(stream: GoProStream) -> None:
     start_time = time.monotonic()
     last_check = 0
     transient_count = [0]  # lista mutabile per contatore transitori
+    gopro_retry_count = 0
+    waiting_for_gopro = False
 
     while not stream._shutdown:
         time.sleep(1)
         elapsed = int(time.monotonic() - start_time)
+
+        # Stato WAITING_FOR_GOPRO: attendi che la GoPro torni online
+        if waiting_for_gopro:
+            if elapsed > 0 and elapsed % GOPRO_CHECK_INTERVAL == 0 and elapsed != last_check:
+                last_check = elapsed
+
+                if _check_gopro_online():
+                    log.info("GoPro tornata online dopo %d tentativi", gopro_retry_count)
+                    _clear_dashboard_warning()
+                    waiting_for_gopro = False
+                    gopro_retry_count = 0
+                    # Continua con il riavvio FFmpeg sotto
+                else:
+                    gopro_retry_count += 1
+                    if gopro_retry_count >= MAX_GOPRO_RETRIES:
+                        msg = f"GoPro offline da {MAX_GOPRO_RETRIES * GOPRO_CHECK_INTERVAL}s"
+                        log.warning(msg)
+                        _send_dashboard_warning(msg)
+                        gopro_retry_count = 0  # reset, riprova
+                    else:
+                        log.info("GoPro offline (%d/%d), attesa...", gopro_retry_count, MAX_GOPRO_RETRIES)
+                    continue  # salta il resto del loop, riprova dopo
 
         # Heartbeat ogni 60s
         if elapsed > 0 and elapsed % 60 == 0 and elapsed != last_check:
@@ -394,13 +468,25 @@ def _supervisor(stream: GoProStream) -> None:
             log.warning("KeepAlive morto → restart")
             stream._keepalive.start()
 
-        # Se FFmpeg è morto → restart
+        # Se FFmpeg è morto → restart con check GoPro
         if stream._ffmpeg and stream._ffmpeg.poll() is not None:
             log.warning("FFmpeg è morto (exit code: %s) → restart", stream._ffmpeg.poll())
             stream._kill_ffmpeg()
+
+            # Check GoPro prima di riavviare FFmpeg
+            if not _check_gopro_online():
+                log.warning("GoPro non raggiungibile → attesa...")
+                waiting_for_gopro = True
+                gopro_retry_count = 0
+                continue
+
             time.sleep(2)
             try:
                 stream._start_ffmpeg()
+                # Dopo FFmpeg, verifica se serve restart streaming
+                if not _check_gopro_streaming_status():
+                    log.info("GoPro non in streaming → invio restart")
+                    stream._restart_stream_gopro()
             except RuntimeError as e:
                 log.error("Impossibile riavviare FFmpeg: %s", e)
                 time.sleep(5)
@@ -423,9 +509,19 @@ def _run_health_checks(stream: GoProStream, transient_count: list[int]) -> None:
         if socket_status == "DEAD":
             log.warning("Supervisore: socket RTMP morto (CLOSE_WAIT/LAST_ACK) → kill FFmpeg")
             stream._kill_ffmpeg()
+
+            # Check GoPro prima di riavviare
+            if not _check_gopro_online():
+                log.warning("GoPro non raggiungibile dopo DEAD socket → attesa")
+                return  # il supervisore gestirà WAITING_FOR_GOPRO
+
             time.sleep(2)
             try:
                 stream._start_ffmpeg()
+                # Verifica se serve restart streaming
+                if not _check_gopro_streaming_status():
+                    log.info("GoPro non in streaming → invio restart")
+                    stream._restart_stream_gopro()
                 results.append("restart=OK")
             except RuntimeError as e:
                 log.error("Restart FFmpeg fallito: %s", e)
@@ -437,9 +533,19 @@ def _run_health_checks(stream: GoProStream, transient_count: list[int]) -> None:
             if transient_count[0] >= 3:
                 log.warning("Supervisore: socket RTMP in stato transitorio da 30s → kill FFmpeg")
                 stream._kill_ffmpeg()
+
+                # Check GoPro prima di riavviare
+                if not _check_gopro_online():
+                    log.warning("GoPro non raggiungibile dopo TRANSIENT → attesa")
+                    return  # il supervisore gestirà WAITING_FOR_GOPRO
+
                 time.sleep(2)
                 try:
                     stream._start_ffmpeg()
+                    # Verifica se serve restart streaming
+                    if not _check_gopro_streaming_status():
+                        log.info("GoPro non in streaming → invio restart")
+                        stream._restart_stream_gopro()
                     results.append("restart=OK")
                 except RuntimeError as e:
                     log.error("Restart FFmpeg fallito: %s", e)

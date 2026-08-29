@@ -60,6 +60,13 @@
     .advanced-section { display: none; }
     .advanced-section.visible { display: grid; }
     .advanced-section .card { border-style: dashed; border-color: #444; }
+    .warning-banner { background: linear-gradient(135deg, #3d1f00, #4a2800); border: 1px solid #ff8c00; border-radius: 8px; padding: 12px 16px; margin: 16px; display: flex; align-items: center; gap: 12px; animation: pulse-warning 2s infinite; }
+    .warning-banner .icon { font-size: 1.5rem; }
+    .warning-banner .text { flex: 1; }
+    .warning-banner .title { font-weight: 600; color: #ffb347; font-size: 0.9rem; }
+    .warning-banner .msg { color: #ff8c00; font-size: 0.8rem; margin-top: 4px; }
+    .warning-banner.hidden { display: none; }
+    @keyframes pulse-warning { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
   </style>
 </head>
 <body x-data="dashboard()" x-cloak>
@@ -70,6 +77,15 @@
       <a href="/videojs.html">Video.js Player</a>
       <a href="/streamhls.html">HLS.js Player</a>
     </nav>
+  </div>
+
+  <!-- WARNING BANNER -->
+  <div class="warning-banner" :class="warning ? '' : 'hidden'">
+    <span class="icon">⚠️</span>
+    <div class="text">
+      <div class="title" x-text="warning ? warning.message : ''"></div>
+      <div class="msg" x-text="warning ? 'Ultimo aggiornamento: ' + new Date(warning.timestamp * 1000).toLocaleTimeString() : ''"></div>
+    </div>
   </div>
 
   <div class="tabs">
@@ -960,6 +976,9 @@
         status: {},
         settings: {},
 
+        // Warning state
+        warning: null,
+
         // Command inputs
         wifiSsid: '',
         wifiPass: '',
@@ -972,9 +991,30 @@
         init() {
           this.checkHLS();
           this.updateStatus();
+          this.checkWarning();
           this.addLog('Dashboard avviata', 'log-info');
           setInterval(() => this.checkHLS(), 10000);
           setInterval(() => this.updateStatus(), 10000);
+          setInterval(() => this.checkWarning(), 5000);
+        },
+
+        async checkWarning() {
+          try {
+            var res = await fetch('/hls/warning.json?t=' + Date.now());
+            if (res.ok) {
+              var data = await res.json();
+              // Warning valido se ha timestamp e non è vecchio di 60s
+              if (data.timestamp && (Date.now() / 1000 - data.timestamp) < 60) {
+                this.warning = data;
+              } else {
+                this.warning = null;
+              }
+            } else {
+              this.warning = null;
+            }
+          } catch (e) {
+            this.warning = null;
+          }
         },
 
         async checkHLS() {
