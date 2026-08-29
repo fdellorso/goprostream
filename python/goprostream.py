@@ -28,7 +28,7 @@ GOPRO_IP: str = os.getenv("GOPRO_IP", "10.5.5.9")
 RTMP_URL: str = os.getenv("RTMP_URL", "rtmp://localhost:1935/live/gopro")
 KEEPALIVE_INTERVAL: int = int(os.getenv("KEEPALIVE_INTERVAL", "8"))
 UDP_PORT: int = int(os.getenv("UDP_PORT", "8554"))
-NGINX_RTMP_PORT: int = 1935
+NGINX_RTMP_PORT: int = int(os.getenv("NGINX_RTMP_PORT", "1935"))
 
 # Auto-recovery GoPro
 MAX_GOPRO_RETRIES: int = int(os.getenv("MAX_GOPRO_RETRIES", "30"))  # 30 × 10s = 5 min
