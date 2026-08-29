@@ -39,9 +39,37 @@ Non serve installare nulla — va solo configurato.
 1. Avvia lo streaming: `./start.sh`
 2. Apri OctoPrint → dovresti vedere il video nella sidebar
 3. Se non si vede:
-   - Verifica che `http://<ouya_ip>:8080/hls/gopro.m3u8` sia raggiungibile
+   - Verifica che l'URL sia raggiungibile
    - Controlla che il formato sia HLS (m3u8)
    - Apri la console del browser per errori CORS
+
+## Configurazione HTTPS
+
+Se OctoPrint è servito su HTTPS, usa la porta 8443:
+
+| Campo | Valore
+|-------|--------|
+| **Stream URL** | `https://ouya.fritz.box:8443/hls/gopro.m3u8` |
+| **Snapshot URL** | *(lascia vuoto)* |
+
+### Note SSL
+
+- nginx gira su porta 8443 con certificati Let's Encrypt/step-ca
+- La porta 8080 resta disponibile per HTTP (redirect)
+- Il certificato viene rinnovato automaticamente via cron (giornaliero)
+
+### Rinnovo certificati
+
+```bash
+# Verifica scadenza certificati
+openssl x509 -in /etc/letsencrypt/live/ouya.fritz.box/fullchain.pem -noout -dates
+
+# Rinnovo manuale
+sudo certbot renew
+
+# Cron job (già configurato)
+cat /etc/cron.d/certbot-renew
+```
 
 ## Troubleshooting
 
