@@ -1,6 +1,14 @@
-# Skill: nginx-rtmp-module
+---
+name: nginx-rtmp-module
+description: >
+  Guida di riferimento per la configurazione nginx-rtmp nel progetto GoPro Streaming.
+  Include tutte le direttive ufficiali, la nostra config annotata, best practice,
+  fix consigliati e troubleshooting. Usa quando si modificano o analizzano
+  docker/nginx.conf o si ha bisogno di informazioni sul modulo nginx-rtmp.
+---
 
-> Guida di riferimento per la configurazione nginx-rtmp nel progetto GoPro Streaming.
+# nginx-rtmp-module
+
 > Basata sulla wiki ufficiale: https://github.com/arut/nginx-rtmp-module/wiki
 
 ## Quando usare questa skill
