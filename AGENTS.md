@@ -77,6 +77,11 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 ### TODO
 
 - [x] Aggiungere comando per avviare streaming UDP: `/execute?p1=gpStream&a1=proto_v2&c1=restart`
+- [x] **Auto-recovery cambio batteria** — Recovery automatico in ~50s con goprocam
+  - Fix 1: Stato WAITING_FOR_GOPRO per attendere GoPro online
+  - Fix 2: Contatore NOSOCKET con restart automatico
+  - Fix 3: `goprocam.livestream("start")` invece di HTTP restart
+  - Test confermati: 2 cambio batteria, recovery automatico ✅
 - [ ] **BUG**: Container goprostream va in crash dopo un po' — da investigare
   - Sintomi: FFmpeg si ferma, logs mostrano attività fino all'ultimo avvio
   - Workaround: `podman-compose restart goprostream`
@@ -163,7 +168,8 @@ Prima di quel comando, FFmpeg è in ascolto ma non riceve nulla dalla GoPro.
 
 - **Stato A (after accensione)**: GoPro accesa, FFmpeg in ascolto, nessun flusso UDP
 - **Stato B (after restart)**: GoPro streamma, FFmpeg converte, Nginx genera HLS
-- **Soluzione on-demand**: Documentata in `docs/streaming-lifecycle.md`
+- **Auto-recovery**: Dopo cambio batteria, recovery automatico in ~50s
+- **Documentazione**: `docs/streaming-lifecycle.md`
 
 ### Dashboard
 

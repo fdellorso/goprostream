@@ -377,9 +377,45 @@ Interval: 2.5 secondi (nativo libreria)
 
 ---
 
-## 8. TODO
+## 8. Auto-Recovery (Implementato)
 
-- [ ] Definire soluzione on-demand
-- [ ] Implementare meccanismo di auto-restart stream
+### Problema
+Dopo un cambio batteria, la GoPro si riavvia ma non riprende lo streaming UDP automaticamente.
+
+### Soluzione
+Il supervisore gestisce automaticamente il recovery:
+
+1. **Rilevamento**: Socket RTMP va in stato TRANSIENT
+2. **Kill FFmpeg**: Dopo 30 secondi di TRANSIENT
+3. **Riavvio FFmpeg**: Si mette in ascolto su UDP:8554
+4. **Check NOSOCKET**: Se FFmpeg non riceve dati per 30s
+5. **Restart streaming**: `goprocam.livestream("start")`
+6. **Recovery**: HLS torna attivo in ~50 secondi
+
+### Flusso
+
+```
+Cambio batteria → GoPro si riavvia
+    ↓
+Socket TRANSIENT (30s) → Kill FFmpeg
+    ↓
+FFmpeg riavviato → Socket NOSOCKET (30s)
+    ↓
+goprocam.livestream("start")
+    ↓
+GoPro riprende streaming UDP
+    ↓
+HLS torna attivo ✅
+```
+
+### Note Importanti
+
+- **`status.17=1` è ingannevole** — Indica solo che il multistream è abilitato
+- **Solo goprocam funziona** — Il comando HTTP `/execute` non basta dopo cambio batteria
+- **Ordine critico** — FFmpeg PRIMA, poi restart streaming
+
+### TODO
+
+- [x] ~~Implementare meccanismo di auto-restart stream~~ ✅
 - [ ] Testare integrazione con OctoPrint
 - [ ] Documentare flusso completo dopo implementazione
