@@ -737,10 +737,29 @@ i bug diretti esisterebbero ma sarebbero meno impactosi.
 
 ---
 
+## Risultati post-fix (2026-08-29)
+
+Dopo l'applicazione di tutti i fix, il sistema è stabile con le seguenti performance:
+
+| Metrica | Valore |
+|---------|--------|
+| **Latenza stream** | **~8 secondi** |
+| Zombie FFmpeg | 0 |
+| Kill supervisore | 0 |
+| Socket RTMP | ESTABLISHED |
+| Stabilità | Nessun crash |
+
+> **Nota latenza**: La latenza di ~8s è dovuta al pipeline completo:
+> GoPro UDP → FFmpeg → RTMP → Nginx HLS → Browser.
+> Con `hls_fragment 3` (era 1), il sistema è stabile con margine ampio.
+> La latenza è accettabile per il monitoraggio remoto della stampante 3D.
+
+---
+
 ## Stato
 
 - [x] Analisi completata
-- [x] Fix applicati (Fase 1+2: shell=True, wait(), keepalive monitor)
+- [x] Fix applicati (Fase 1+2+3: shell=True, wait(), keepalive monitor, supervisore)
 - [x] Test su OUYA (confermato: zero zombie, nessun kill supervisore)
 - [x] Conferma fix risolve il problema
-- [ ] Fix Fase 3: network_mode: host (da valutare)
+- [x] Performance misurate: latenza ~8s, sistema stabile
