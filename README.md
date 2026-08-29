@@ -50,9 +50,10 @@ nano .env
 
 | Servizio | URL |
 |----------|-----|
-| Dashboard | `http://<ouya_ip>:8080/` |
-| Player HLS | `http://<ouya_ip>:8080/hlsjs.html` |
-| Stream HLS | `http://<ouya_ip>:8080/hls/gopro.m3u8` |
+| Dashboard HTTP | `http://<ouya_ip>:8080/` |
+| Dashboard HTTPS | `https://<ouya_ip>:8443/` |
+| Stream HLS (HTTP) | `http://<ouya_ip>:8080/hls/gopro.m3u8` |
+| Stream HLS (HTTPS) | `https://<ouya_ip>:8443/hls/gopro.m3u8` |
 | Stream RTMP | `rtmp://<ouya_ip>:1935/live/gopro` |
 
 ## Struttura del Progetto
@@ -66,7 +67,9 @@ nano .env
 ├── docker/                 # Infrastruttura container
 │   ├── docker-compose.yml  # Stack: nginx-rtmp + goprostream
 │   ├── Dockerfile.python   # Immagine Python container
-│   └── nginx.conf          # Configurazione Nginx-RTMP
+│   ├── nginx.conf          # Configurazione Nginx-RTMP
+│   ├── nginx.conf.template # Template con env var
+│   └── entrypoint.sh       # Script avvio con envsubst
 ├── player/                 # Player web offline
 │   ├── dashboard.html      # Dashboard monitoraggio
 │   ├── hlsjs.html          # Player hls.js
@@ -114,6 +117,18 @@ Per visualizzare lo stream nell'interfaccia OctoPrint:
 2. Imposta Stream URL: `http://<ouya_ip>:8080/hls/gopro.m3u8`
 
 Vedi `docs/setup-octoprint.md` per dettagli.
+
+## Variabili d'Ambiente
+
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `GOPRO_IP` | `10.5.5.9` | IP della GoPro |
+| `SERVER_NAME` | `ouya.fritz.box` | Dominio nginx |
+| `NGINX_RTMP_PORT` | `1935` | Porta RTMP |
+| `SSL_CERT_PATH` | `/etc/letsencrypt/live/ouya.fritz.box/fullchain.pem` | Path certificato SSL |
+| `SSL_KEY_PATH` | `/etc/letsencrypt/live/ouya.fritz.box/privkey.pem` | Path chiave SSL |
+
+Vedi `.env.example` per la configurazione completa.
 
 ## License
 

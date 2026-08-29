@@ -13,6 +13,8 @@ Questo progetto è un **bridge di streaming video** tra una GoPro Hero 4 Black e
 | `python/gopro_api.py` | API server (bottle) per dashboard — ATTUALMENTE NON USATO, proxy diretto nginx |
 | `docker/docker-compose.yml` | Stack Podman: nginx-rtmp + goprostream |
 | `docker/nginx.conf` | Configurazione Nginx-RTMP (porta 1935 RTMP, 8080 HTTP) |
+| `docker/nginx.conf.template` | Template nginx con env var (${SERVER_NAME}, ${GOPRO_IP}) |
+| `docker/entrypoint.sh` | Script avvio: genera nginx.conf da template con envsubst |
 | `docker/Dockerfile.python` | Immagine Python con FFmpeg |
 | `player/` | Player web offline (hls.js, video.js, dashboard) |
 
@@ -25,7 +27,9 @@ Questo progetto è un **bridge di streaming video** tra una GoPro Hero 4 Black e
 ### Network
 
 ```
-GoPro ←WiFi Direct→ OUYA ←HTTP HLS→ OctoPrint (LXC su Proxmox)
+GoPro ←WiFi Direct→ OUYA ←HLS→ OctoPrint (LXC su Proxmox)
+                                    │
+                              https://ouya.fritz.box:8443
 
 Browser → nginx (/api/) → GoPro (10.5.5.9) [proxy diretto]
 ```
@@ -99,7 +103,9 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 ├── docker/                     # Infrastruttura container
 │   ├── docker-compose.yml      # Stack Podman
 │   ├── Dockerfile.python       # Immagine Python
-│   └── nginx.conf              # Configurazione Nginx
+│   ├── nginx.conf              # Configurazione Nginx
+│   ├── nginx.conf.template     # Template con env var
+│   └── entrypoint.sh           # Script avvio con envsubst
 ├── player/                     # Player web offline
 │   ├── dashboard.html          # Dashboard monitoraggio
 │   ├── hlsjs.html              # Player hls.js
@@ -115,7 +121,8 @@ curl http://localhost:8080/api/cmd/command/system/locate?p=1
 │   ├── architecture.md
 │   ├── context.md
 │   ├── streaming-lifecycle.md   # Ciclo vita streaming (stati, flussi, soluzioni)
-│   ├── setup-octoprint.md
+│   ├── setup-octoprint.md      # Setup OctoPrint con HTTPS
+│   ├── octoprint-snapshot.md   # Snapshot & timelapse
 │   ├── references/             # API GoPro Hero 4
 │   ├── handoff/
 │   └── plans/
@@ -160,6 +167,8 @@ La cartella `docs/references/` contiene la documentazione GoPro Hero 4 archiviat
 - Podman-compose per i container (rootless, compatibile)
 - OctoPrint usa Classic Webcam (non Iframe) per visualizzare lo stream HLS
 - Il container Python usa `network_mode: host` per raggiungere la GoPro
+- nginx supporta HTTPS su porta 8443 con certificati Let's Encrypt/step-ca
+- Tutte le configurazioni sono variabilizzate via env var (SERVER_NAME, GOPRO_IP, etc.)
 
 ### Streaming Lifecycle
 
