@@ -1,7 +1,7 @@
 # Debug Crash Container goprostream — Report Completo
 
-> Data: 2026-08-23/24
-> Stato: In corso — causa identificata, fix non ancora implementato
+> Data: 2026-08-23/24 (debug) → 2026-08-29 (fix)
+> Stato: ✅ Fix Fase 1+2 applicati — problema risolto
 
 ---
 
@@ -198,6 +198,9 @@ Supervisor loop (ogni 30s):
 ├── Check 2: GoPro streaming?
 │   ├── Sì → OK
 │   └── No → restart stream GoPro
+├── Check 3: KeepAlive attivo?
+│   ├── Sì → OK
+│   └── No → restart keepalive
 └── Diagnostica: HLS endpoint (log)
 ```
 
@@ -205,27 +208,44 @@ Supervisor loop (ogni 30s):
 
 ---
 
-## 8. TODO
+## 8. Fix definitivi applicati (2026-08-29)
 
+| Fix | Problema | Soluzione | Risultato |
+|-----|----------|-----------|----------|
+| shell=True | Crea 2 processi (shell + FFmpeg) | Lista argomenti diretti | ✅ 1 processo |
+| wait() mancante dopo SIGKILL | Zombie si accumulano | Aggiunto `self._ffmpeg.wait()` | ✅ Zero zombie |
+| KeepAlive non monitorato | Processo può morire silenziosamente | Check nel supervisore | ✅ Auto-recovery |
+
+### Metriche post-fix
+
+| Metrica | Prima fix | Dopo fix |
+|---------|-----------|----------|
+| Zombie FFmpeg | 6-9 | 0 |
+| Kill supervisore | Ogni 60s | 0 |
+| Socket RTMP | `non ESTABLISHED` | OK |
+| Stabilità | Crash periodico | Stabile |
+
+---
+
+## 9. TODO residui
+
+- [ ] Fix Fase 3: valutare rimozione `network_mode: host` da goprostream
 - [ ] Capire perché FFmpeg chiude dopo ~50s (opzione FFmpeg o codice sorgente)
-- [ ] Testare se un'opzione FFmpeg diversa risolve il problema
-- [ ] Implementare fix definitivo
-- [ ] Verificare se il problema si verifica anche senza supervisore
 - [ ] Testare su hardware diverso (non OUYA)
 
 ---
 
-## 9. File modificati
+## 10. File modificati
 
 | File | Modifiche |
 |------|-----------|
-| `python/goprostream.py` | Supervisore con auto-recovery, socket monitoring, health checks |
-| `docker/nginx.conf` | Log level `info`, stat endpoint `/stat` |
-| `scripts/watch-stream.sh` | Script di monitoraggio esterno |
+| `python/goprostream.py` | Supervisore con auto-recovery, socket monitoring, health checks, fix shell=True, wait(), keepalive monitor |
+| `docker/nginx.conf` | Log level `info`, stat endpoint `/stat`, hls_fragment 3, hls_sync 100ms, drop_idle_publisher 30s |
+| `scripts/watch-stream.sh` | Script di monitoraggio esterno con check zombie, supervisore, keepalive |
 
 ---
 
-## 10. Comandi utili per debug futuro
+## 11. Comandi utili per debug futuro
 
 ```bash
 # Stato container

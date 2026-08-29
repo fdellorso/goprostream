@@ -1,7 +1,7 @@
 # Piano Fix — Crash Container goprostream
 
-> **Data**: 2026-08-28
-> **Stato**: Solo documentazione, nessuna implementazione applicata
+> **Data**: 2026-08-28 (piano) → 2026-08-29 (implementazione)
+> **Stato**: ✅ Fix 1,2,3,5 applicati e testati
 > **Riferimento**: `docs/analisi-crash-container.md`
 
 ---
@@ -10,11 +10,11 @@
 
 | # | Fix | Priorità | Difficoltà | File |
 |---|-----|----------|------------|------|
-| 1 | Supervisore `_check_rtmp_socket()` — fix stati kill | 🔴 Alta | Bassa | `python/goprostream.py` |
-| 2 | FFmpeg zombie — rimuovere `shell=True` | 🔴 Alta | Bassa | `python/goprostream.py` |
-| 3 | FFmpeg zombie — aggiungere `wait()` dopo SIGKILL | 🔴 Alta | Bassa | `python/goprostream.py` |
-| 4 | Network mode — valutare rimozione da goprostream | 🟠 Media | Alta | `docker/docker-compose.yml` |
-| 5 | Supervisore — monitorare keepalive | 🟠 Media | Bassa | `python/goprostream.py` |
+| 1 | Supervisore `_check_rtmp_socket()` — fix stati kill | 🔴 Alta | Bassa | `python/goprostream.py` | ✅ **APPLICATO** |
+| 2 | FFmpeg zombie — rimuovere `shell=True` | 🔴 Alta | Bassa | `python/goprostream.py` | ✅ **APPLICATO** |
+| 3 | FFmpeg zombie — aggiungere `wait()` dopo SIGKILL | 🔴 Alta | Bassa | `python/goprostream.py` | ✅ **APPLICATO** |
+| 4 | Network mode — valutare rimozione da goprostream | 🟠 Media | Alta | `docker/docker-compose.yml` | ⏳ Da valutare |
+| 5 | Supervisore — monitorare keepalive | 🟠 Media | Bassa | `python/goprostream.py` | ✅ **APPLICATO** |
 
 ---
 
@@ -304,6 +304,10 @@ Questo fix è preventivo, non urgente.
 | ✅ | hls_fragment 3, hls_playlist_length 10, hls_sync 100ms | 2026-08-28 | `docker/nginx.conf` |
 | ✅ | drop_idle_publisher 30s, idle_streams off | 2026-08-28 | `docker/nginx.conf` |
 | ✅ | allow/deny publish, ping 30s | 2026-08-28 | `docker/nginx.conf` |
+| ✅ | **Rimosso `shell=True`** — lista argomenti | 2026-08-29 | `python/goprostream.py` |
+| ✅ | **Aggiunto `wait()` dopo SIGKILL** | 2026-08-29 | `python/goprostream.py` |
+| ✅ | **Monitor keepalive nel supervisore** | 2026-08-29 | `python/goprostream.py` |
+| ✅ | **Watch-stream.sh aggiornato** (zombie, supervisore, keepalive) | 2026-08-29 | `scripts/watch-stream.sh` |
 
 ---
 
@@ -324,9 +328,9 @@ Dopo ogni fix, testare su OUYA:
 ## Stato
 
 - [x] Documentazione completata
-- [ ] Fix 1 applicato (supervisore)
-- [ ] Fix 2 applicato (shell=True)
-- [ ] Fix 3 applicato (wait dopo SIGKILL)
-- [ ] Fix 4 applicato (network mode)
-- [ ] Fix 5 applicato (monitor keepalive)
-- [ ] Test su OUYA
+- [x] Fix 1 applicato (supervisore)
+- [x] Fix 2 applicato (shell=True)
+- [x] Fix 3 applicato (wait dopo SIGKILL)
+- [ ] Fix 4 applicato (network mode) — da valutare
+- [x] Fix 5 applicato (monitor keepalive)
+- [x] Test su OUYA — confermato zero zombie, nessun kill

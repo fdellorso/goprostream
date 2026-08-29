@@ -233,16 +233,19 @@ class GoProStream:
         self._kill_ffmpeg()
 
         udp_url = f"udp://{GOPRO_IP}:{UDP_PORT}"
-        cmd = (
-            f"ffmpeg -y -f mpegts -i {udp_url} "
-            f"-c copy -an "
-            f"-f flv {RTMP_URL}"
-        )
-        log.info("Avvio FFmpeg: %s", cmd)
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "mpegts",
+            "-i", udp_url,
+            "-c", "copy",
+            "-an",
+            "-f", "flv",
+            RTMP_URL,
+        ]
+        log.info("Avvio FFmpeg: %s", " ".join(cmd))
 
         self._ffmpeg = subprocess.Popen(
             cmd,
-            shell=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             preexec_fn=os.setsid,
@@ -277,6 +280,7 @@ class GoProStream:
                     os.killpg(os.getpgid(self._ffmpeg.pid), signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+                self._ffmpeg.wait()
             exit_code = self._ffmpeg.poll()
 
         # Log exit code
@@ -373,6 +377,11 @@ def _supervisor(stream: GoProStream) -> None:
         if elapsed > 0 and elapsed % 30 == 0 and elapsed != last_check:
             last_check = elapsed
             _run_health_checks(stream)
+
+        # Check KeepAlive
+        if stream._keepalive and not stream._keepalive.is_running:
+            log.warning("KeepAlive morto → restart")
+            stream._keepalive.start()
 
         # Se FFmpeg è morto → restart
         if stream._ffmpeg and stream._ffmpeg.poll() is not None:

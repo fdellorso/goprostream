@@ -1,8 +1,8 @@
 # Analisi Crash Container goprostream
 
-> **Data**: 2026-08-25
-> **Commit di riferimento**: `42b0726` (pre-regressione) → `HEAD` (`4f21571`)
-> **Stato**: Solo analisi, nessuna modifica applicata
+> **Data**: 2026-08-25 (analisi) → 2026-08-29 (fix)
+> **Commit di riferimento**: `42b0726` (pre-regressione) → `HEAD`
+> **Stato**: ✅ Fix Fase 1+2 applicati e testati
 
 ---
 
@@ -11,7 +11,7 @@
 | # | Regressione | Commit | Tipo | Sospetto | Approfondimento |
 |---|-------------|--------|------|----------|------------------|
 | 1 | `network_mode: host` | `df0043b` | 🔧 Bug diretto | 🔴 Alto | ✅ 5 opzioni analizzate |
-| 2 | Supervisore `_check_rtmp_socket()` troppo aggressivo | `8caba40` | 🔧 Bug diretto | 🔴 Alto | ❌ Solo descrizione |
+| 2 | Supervisore `_check_rtmp_socket()` troppo aggressivo | `8caba40` | 🔧 Bug diretto | 🔴 Alto | ✅ Approfondito + ✅ **FIXATO** (2026-08-29) |
 | 3 | `time.sleep(10)` rimosso dopo `_start_ffmpeg()` | `96870bc` | ⚙️ Rilassamento sistema | 🟡 Basso | ✅ Analisi sleep + keepalive + references GoPro |
 | 4 | `hls_fragment 1` (era 3) | `96870bc` | ⚙️ Rilassamento sistema | 🔴 Alto | ✅ Fix: hls_fragment 3, hls_playlist_length 10, hls_sync 100ms |
 | 5 | KeepAlive in `multiprocessing.Process` | `96870bc` | ⚙️ Rilassamento sistema | 🟠 Medio | ⚠️ Analisi orfani (risultato: non è il problema) |
@@ -23,7 +23,7 @@
 
 | # | Problema | Tipo | Probabilità | Approfondimento |
 |---|----------|------|-------------|------------------|
-| 9 | FFmpeg zombie (`shell=True` + `wait()` mancante dopo SIGKILL) | 🔧 Bug diretto | 🔴 Alta | ✅ 4 bug identificati, soluzione concettuale |
+| 9 | FFmpeg zombie (`shell=True` + `wait()` mancante dopo SIGKILL) | 🔧 Bug diretto | 🔴 Alta | ✅ 4 bug identificati + ✅ **FIXATO** (2026-08-29) |
 
 > **Legenda Tipo:**
 > - 🔧 **Bug diretto** — Causa il crash o il problema direttamente
@@ -740,6 +740,7 @@ i bug diretti esisterebbero ma sarebbero meno impactosi.
 ## Stato
 
 - [x] Analisi completata
-- [ ] Fix applicati
-- [ ] Test su OUYA
-- [ ] Conferma fix risolve il problema
+- [x] Fix applicati (Fase 1+2: shell=True, wait(), keepalive monitor)
+- [x] Test su OUYA (confermato: zero zombie, nessun kill supervisore)
+- [x] Conferma fix risolve il problema
+- [ ] Fix Fase 3: network_mode: host (da valutare)
